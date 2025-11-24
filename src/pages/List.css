@@ -1,0 +1,154 @@
+/* src/components/Dashboard/List.css */
+.list {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 12px;
+  padding: 16px;
+  width: 280px;
+  min-height: 200px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.list-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #172b4d;
+  margin: 0;
+  cursor: pointer;
+}
+
+.list-title:hover {
+  color: #0055cc;
+}
+
+.list-menu-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: #5e6c84;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.list-menu-btn:hover {
+  background: rgba(9, 30, 66, 0.08);
+  color: #172b4d;
+}
+
+.cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 40px;
+}
+
+/* Add Card Styles */
+.add-card-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #5e6c84;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.add-card-btn:hover {
+  background: rgba(9, 30, 66, 0.08);
+  color: #172b4d;
+}
+
+.add-card-icon {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.add-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-input {
+  padding: 12px;
+  border: 2px solid #388bff;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  color: #172b4d;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.card-input:focus {
+  border-color: #0055cc;
+  box-shadow: 0 0 0 2px rgba(0, 85, 204, 0.2);
+}
+
+.card-input::placeholder {
+  color: #5e6c84;
+}
+
+.add-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.add-card-submit {
+  flex: 1;
+  padding: 10px 16px;
+  background: #0c66e4;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-card-submit:hover {
+  background: #0055cc;
+  transform: translateY(-1px);
+}
+
+.cancel-add-card {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: #5e6c84;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.cancel-add-card:hover {
+  background: rgba(9, 30, 66, 0.08);
+  color: #172b4d;
+}
+
+/* Drag and Drop States */
+.list.drag-over {
+  background: rgba(0, 121, 191, 0.1);
+  border: 2px dashed #0079bf;
+}
