@@ -1,76 +1,148 @@
-// src/components/Header/Header.jsx
-import React from 'react';
+// src/components/Dashboard/Header.js
+import React, { useState } from 'react';
+import { useAuth } from '../../components/context/AuthContext';
 import './Header.css';
 
-const Header = ({ workspaces, activeWorkspace, onWorkspaceChange }) => {
+const Header = () => {
+  const { user, logout } = useAuth();
+  const [activeNav, setActiveNav] = useState('dashboard');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const userInitials = user?.username 
+    ? user.username.substring(0, 2).toUpperCase()
+    : 'ME';
+
+  const handleLogout = () => {
+    logout();
+    setShowUserMenu(false);
+  };
+
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'boards', label: 'Boards', icon: '📋' },
+    { id: 'templates', label: 'Templates', icon: '🎨' },
+    { id: 'reports', label: 'Reports', icon: '📈' }
+  ];
+
   return (
-    <header className="header">
+    <div className="header">
+      {/* Left Section */}
       <div className="header-left">
+        {/* Logo */}
         <div className="logo">
-          <div className="logo-icon">🎯</div>
-          <h1>Trelle</h1>
+          <div className="logo-icon">📊</div>
+          <h1>IA TEAM PLANNIG</h1>
         </div>
-        
+
+        {/* Workspace Selector */}
         <div className="workspace-selector">
-          <select 
-            className="workspace-dropdown"
-            value={activeWorkspace}
-            onChange={(e) => onWorkspaceChange(parseInt(e.target.value))}
-          >
-            {workspaces.map(workspace => (
-              <option key={workspace.id} value={workspace.id}>
-                {workspace.name}
-              </option>
-            ))}
+          <select className="workspace-dropdown">
+            <option>My Workspace</option>
+            <option>Team Projects</option>
+            <option>Personal Tasks</option>
           </select>
         </div>
 
+        {/* Main Navigation */}
         <nav className="main-nav">
-          <button className="nav-btn active">
-            <span className="nav-icon">📊</span>
-            Tableaux
-          </button>
-          <button className="nav-btn">
-            <span className="nav-icon">🚀</span>
-            Vues
-          </button>
-          <button className="nav-btn">
-            <span className="nav-icon">⚡</span>
-            Automatisation
-          </button>
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              className={`nav-btn ${activeNav === item.id ? 'active' : ''}`}
+              onClick={() => setActiveNav(item.id)}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
         </nav>
       </div>
 
+      {/* Right Section */}
       <div className="header-right">
-        <div className="premium-notice">
-          <div className="premium-badge">
-            <span className="badge-number">4</span>
-          </div>
-          <div className="premium-text">
-            L'essai gratuit de Premium est terminé pour Espace de travail Trelle.
-          </div>
-        </div>
-
+   
+        {/* Header Actions */}
         <div className="header-actions">
-          <button className="action-btn search-btn">
+          {/* Search Button */}
+          <button className="action-btn" title="Search">
             <span className="action-icon">🔍</span>
           </button>
-          <button className="action-btn notification-btn">
+
+          {/* Notifications */}
+          <button className="action-btn" title="Notifications">
             <span className="action-icon">🔔</span>
-            <span className="notification-dot"></span>
+            <div className="notification-dot"></div>
           </button>
-          <button className="action-btn add-btn">
-            <span className="action-icon">➕</span>
+
+          {/* Help */}
+          <button className="action-btn" title="Help">
+            <span className="action-icon">❓</span>
           </button>
-          
+
+          {/* User Menu */}
           <div className="user-menu">
-            <div className="user-avatar">
-              <img src="/api/placeholder/32/32" alt="User" />
+            <div 
+              className="user-avatar"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              title={`${user?.username || 'User'} - Click to open menu`}
+            >
+              {userInitials}
             </div>
+            
+            {/* Dropdown Menu */}
+            {showUserMenu && (
+              <div className="user-dropdown">
+                <div className="dropdown-section">
+                  <div className="user-info">
+                    <div className="user-avatar-small">{userInitials}</div>
+                    <div className="user-details">
+                      <div className="user-name">{user?.username || 'User'}</div>
+                      <div className="user-email">{user?.email || 'user@example.com'}</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="dropdown-section">
+                  <button className="dropdown-item">
+                    <span className="dropdown-icon">👤</span>
+                    Profile Settings
+                  </button>
+                  <button className="dropdown-item">
+                    <span className="dropdown-icon">🎨</span>
+                    Theme Preferences
+                  </button>
+                  <button className="dropdown-item">
+                    <span className="dropdown-icon">⚙️</span>
+                    Workspace Settings
+                  </button>
+                </div>
+                
+                <div className="dropdown-section">
+                  <button className="dropdown-item">
+                    <span className="dropdown-icon">🆘</span>
+                    Help & Support
+                  </button>
+                  <button className="dropdown-item">
+                    <span className="dropdown-icon">📱</span>
+                    Download App
+                  </button>
+                </div>
+                
+                <div className="dropdown-section">
+                  <button 
+                    className="dropdown-item logout-item"
+                    onClick={handleLogout}
+                  >
+                    <span className="dropdown-icon">🚪</span>
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-    </header>
+    </div>
   );
 };
 

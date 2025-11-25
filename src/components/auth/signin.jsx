@@ -1,100 +1,53 @@
-// src/components/auth/SignIn.jsx
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
-import "./signin.css";
+// src/components/auth/signin.js
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+import './signin.css';
 
-export default function SignIn() {
+const SignIn = () => {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [formData, setFormData] = useState({
-    email: "",
-    password: ""
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const { login } = useAuth();
   const navigate = useNavigate();
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ""
-      }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.email) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Email is invalid";
-    }
-    
-    if (!formData.password) {
-      newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    
+    // Basic validation
+    if (!formData.email || !formData.password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const response = await axios.post("http://localhost:4000/ajouter/login", formData);
+      const result = await login(formData.email, formData.password);
       
-      if (response.status === 200) {
-        // Store user data
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("role", response.data.role);
-        localStorage.setItem("user_id", response.data.user_id);
-        
-        if (rememberMe) {
-          localStorage.setItem("rememberMe", "true");
-          localStorage.setItem("savedEmail", formData.email);
-        }
-        
-        // Show success message
-        setTimeout(() => {
-          navigate('/');
-        }, 1000);
+      if (result.success) {
+        navigate('/dashboard');
+      } else {
+        setError(result.error || 'Login failed');
       }
-    } catch (error) {
-      setErrors({ 
-        submit: error.response?.data?.message || "Invalid email or password. Please try again." 
-      });
+    } catch (err) {
+      setError('An unexpected error occurred');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  // Load saved email if remember me was checked
-  useState(() => {
-    const savedEmail = localStorage.getItem("savedEmail");
-    const savedRememberMe = localStorage.getItem("rememberMe");
-    
-    if (savedRememberMe && savedEmail) {
-      setFormData(prev => ({ ...prev, email: savedEmail }));
-      setRememberMe(true);
-    }
-  }, []);
+  // Remove the mock social login handlers since they're not implemented
+  const handleSocialLogin = (provider) => {
+    setError(`${provider} authentication is not available yet`);
+  };
 
   return (
     <div className="signin-container">
@@ -106,72 +59,68 @@ export default function SignIn() {
         <div className="floating-shape shape-4"></div>
       </div>
 
+      {/* Sign In Card */}
       <div className="signin-card">
         {/* Header */}
         <div className="signin-header">
           <div className="logo">
-            <div className="logo-icon">🎯</div>
-            <h1>STS Planning</h1>
+            <div className="logo-icon">📊</div>
+            <h1>STS PLANNING</h1>
           </div>
-          <h2 className="welcome-text">Welcome Back!</h2>
-          <p className="subtitle">Sign in to continue to your workspace</p>
+          <h2 className="welcome-text">Welcome Back</h2>
+          <p className="subtitle">Sign in to continue to your dashboard</p>
         </div>
 
         {/* Error Message */}
-        {errors.submit && (
+        {error && (
           <div className="error-message">
             <span className="error-icon">⚠️</span>
-            {errors.submit}
+            {error}
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="signin-form">
+          {/* Email Input */}
           <div className="form-group">
-            <label htmlFor="email" className="form-label">
-              Email Address
-            </label>
             <div className="input-container">
+          
               <input
                 type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={`form-input ${errors.email ? 'error' : ''}`}
                 placeholder="Enter your email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="form-input"
+                required
+                disabled={loading}
               />
-              <span className="input-icon">📧</span>
             </div>
-            {errors.email && <span className="error-text">{errors.email}</span>}
           </div>
 
+          {/* Password Input */}
           <div className="form-group">
-            <label htmlFor="password" className="form-label">
-              Password
-            </label>
             <div className="input-container">
+              
               <input
                 type={showPassword ? "text" : "password"}
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className={`form-input ${errors.password ? 'error' : ''}`}
                 placeholder="Enter your password"
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                className="form-input"
+                required
+                disabled={loading}
               />
-              <span className="input-icon">🔒</span>
-              <button
+              <button 
                 type="button"
                 className="password-toggle"
                 onClick={() => setShowPassword(!showPassword)}
+                disabled={loading}
               >
-                {showPassword ? "🙈" : "👁️"}
+                {showPassword ? "👁️" : "👁️‍🗨️"}
               </button>
             </div>
-            {errors.password && <span className="error-text">{errors.password}</span>}
           </div>
 
+          {/* Form Options */}
           <div className="form-options">
             <label className="checkbox-container">
               <input
@@ -179,63 +128,51 @@ export default function SignIn() {
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className="checkbox-input"
+                disabled={loading}
               />
               <span className="checkmark"></span>
               Remember me
             </label>
-            
             <Link to="/forgot-password" className="forgot-link">
-              Forgot Password?
+              Forgot password?
             </Link>
           </div>
 
+          {/* Submit Button */}
           <button 
             type="submit" 
-            className={`submit-btn ${isLoading ? 'loading' : ''}`}
-            disabled={isLoading}
+            className={`submit-btn ${loading ? 'loading' : ''}`}
+            disabled={loading}
           >
-            {isLoading ? (
+            {loading ? (
               <>
                 <div className="spinner"></div>
                 Signing In...
               </>
             ) : (
-              'Sign In'
+              <>
+                <span>🚀</span>
+                Sign In
+              </>
             )}
           </button>
         </form>
 
-        {/* Social Login */}
-        <div className="social-login">
-          <div className="divider">
-            <span>Or continue with</span>
-          </div>
-          
-          <div className="social-buttons">
-            <button type="button" className="social-btn google">
-              <span className="social-icon">🔍</span>
-              Google
-            </button>
-            <button type="button" className="social-btn github">
-              <span className="social-icon">💻</span>
-              GitHub
-            </button>
-          </div>
-        </div>
-
         {/* Sign Up Link */}
         <div className="signup-link">
-          Don't have an account?{" "}
-          <Link to="/signup" className="link">
-            Sign up now
+          Don't have an account?{' '}
+          <Link to="/register" className="link">
+            Sign up
           </Link>
         </div>
       </div>
 
       {/* Footer */}
       <div className="signin-footer">
-        <p>© 2024 TaskFlow. All rights reserved.</p>
+        © 2024 TaskFlow. All rights reserved.
       </div>
     </div>
   );
-}
+};
+
+export default SignIn;
