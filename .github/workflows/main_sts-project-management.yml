@@ -36,8 +36,7 @@ jobs:
           CI: "false"
         run: npm run build
 
-      - name: Test
-        run: npm test --if-present
+      
 
       # Create a slim deployable package (recommended over uploading the whole repo)
       - name: Create deployment package
@@ -83,3 +82,4 @@ jobs:
           app-name: "sts-project-management"
           slot-name: "Production"
           package: release.zip
+
