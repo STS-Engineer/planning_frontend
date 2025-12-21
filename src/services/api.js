@@ -160,6 +160,14 @@ async getUsers() {
   return this.request('/users');
 }
 
+async getMyProjects() {
+  return this.request('/api/my-projects');
+}
+
+// ✅ ADD THIS
+async getMembers() {
+  return this.request('/users/members');
+}
 
 async searchUsers(email) {
   return this.request(`/users/search/${encodeURIComponent(email)}`);
@@ -193,6 +201,9 @@ async updateProfile(userData) {
 async getProjectTeam(projectId) {
   return this.request(`/projects/${projectId}/team`);
 }
+
+//fetch members 
+
 }
 
 export default new ApiService();

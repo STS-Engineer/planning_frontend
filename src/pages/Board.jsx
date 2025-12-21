@@ -19,16 +19,17 @@ const Board = () => {
   });
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProject, setNewProject] = useState({
-  name: '',
-  startDate: '',
-  endDate: '',
-  comment: '',
-  teamMembers: [], // Add this line
-  isPublic: false,
-  allowComments: true,
-  enableNotifications: true
-});
+    name: '',
+    startDate: '',
+    endDate: '',
+    comment: '',
+    teamMembers: [], // Add this line
+    isPublic: false,
+    allowComments: true,
+    enableNotifications: true
+  });
   const [activeView, setActiveView] = useState('board'); // 'board' or 'stats'
+  const [members, setMembers] = useState([]);
 
   // Load user's projects on component mount
   useEffect(() => {
@@ -40,7 +41,7 @@ const Board = () => {
   const loadUserProjects = async () => {
     try {
       setLoading(true);
-      const response = await ApiService.getProjects();
+      const response = await ApiService.getProjects(); // Admin/member handled automatically
       setProjects(response.projects);
 
       if (response.projects.length > 0) {
@@ -57,6 +58,7 @@ const Board = () => {
     }
   };
 
+
   const loadProjectTasks = async (projectId) => {
     try {
       const response = await ApiService.getTasks(projectId);
@@ -65,6 +67,16 @@ const Board = () => {
     } catch (error) {
       console.error('Failed to load tasks:', error);
       setLists(getInitialBoardStructure());
+    }
+  };
+
+
+  const loadMembers = async () => {
+    try {
+      const res = await ApiService.getMembers();
+      setMembers(res.users);
+    } catch (error) {
+      console.error('Failed to load members', error);
     }
   };
 
@@ -218,8 +230,8 @@ const Board = () => {
         databaseId: response.task.task_id
       };
 
-      setLists(prev => prev.map(list => 
-        list.id === newTask.listId 
+      setLists(prev => prev.map(list =>
+        list.id === newTask.listId
           ? { ...list, cards: [...list.cards, newCard] }
           : list
       ));
@@ -244,17 +256,29 @@ const Board = () => {
         project_name: newProject.name,
         start_date: newProject.startDate,
         end_date: newProject.endDate,
-        comment: newProject.comment
+        comment: newProject.comment,
+        members: newProject.teamMembers.map(m => m.id) // ✅ send only IDs
       });
 
       await loadUserProjects();
-      setNewProject({ name: '', startDate: '', endDate: '', comment: '' });
+      setNewProject({
+        name: '',
+        startDate: '',
+        endDate: '',
+        comment: '',
+        teamMembers: [],
+        isPublic: false,
+        allowComments: true,
+        enableNotifications: true
+      });
+
       setShowNewProjectModal(false);
     } catch (error) {
       console.error('Failed to create project:', error);
       alert('Failed to create project. Please try again.');
     }
   };
+
 
   const deleteTask = async (taskId) => {
     try {
@@ -270,7 +294,7 @@ const Board = () => {
     const totalTasks = lists.reduce((acc, list) => acc + list.cards.length, 0);
     const completedTasks = lists.find(list => list.id === 3)?.cards.length || 0;
     const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-    
+
     return { totalTasks, completedTasks, completionRate };
   };
 
@@ -299,15 +323,15 @@ const Board = () => {
               </h1>
               <p className="welcome-subtitle">Manage your projects and tasks efficiently</p>
             </div>
-            
+
             <div className="view-toggle">
-              <button 
+              <button
                 className={`view-btn ${activeView === 'board' ? 'active' : ''}`}
                 onClick={() => setActiveView('board')}
               >
                 📋 Board View
               </button>
-              <button 
+              <button
                 className={`view-btn ${activeView === 'stats' ? 'active' : ''}`}
                 onClick={() => setActiveView('stats')}
               >
@@ -357,20 +381,27 @@ const Board = () => {
             <span className="title-icon">🚀</span>
             Your Projects
           </h2>
-          <button 
-            className="create-project-btn"
-            onClick={() => setShowNewProjectModal(true)}
-          >
-            <span className="btn-icon">➕</span>
-            New Project
-          </button>
+
+          {user?.role === 'ADMIN' && (
+            <button
+              className="create-project-btn"
+              onClick={() => {
+                setShowNewProjectModal(true);
+                loadMembers();
+              }}
+            >
+              <span className="btn-icon">➕</span>
+              New Project
+            </button>
+          )}
+
         </div>
 
         <div className="projects-grid">
           {projects.length > 0 ? (
             projects.map(project => (
-              <div 
-                key={project.project_id} 
+              <div
+                key={project.project_id}
                 className={`project-card ${selectedProject?.project_id === project.project_id ? 'active' : ''}`}
                 onClick={() => {
                   setSelectedProject(project);
@@ -413,7 +444,7 @@ const Board = () => {
               <span className="title-icon">🎯</span>
               Task Board - {selectedProject['project-name']}
             </h2>
-       
+
           </div>
 
           {/* Quick Add Task */}
@@ -440,7 +471,7 @@ const Board = () => {
                   className="task-description"
                 />
                 <div className="task-options">
-                  <select 
+                  <select
                     value={newTask.listId}
                     onChange={(e) => setNewTask(prev => ({ ...prev, listId: parseInt(e.target.value) }))}
                     className="option-select"
@@ -449,7 +480,7 @@ const Board = () => {
                       <option key={list.id} value={list.id}>{list.icon} {list.title}</option>
                     ))}
                   </select>
-                  <select 
+                  <select
                     value={newTask.priority}
                     onChange={(e) => setNewTask(prev => ({ ...prev, priority: e.target.value }))}
                     className="option-select"
@@ -458,7 +489,7 @@ const Board = () => {
                     <option value="medium">🟡 Medium</option>
                     <option value="high">🔴 High</option>
                   </select>
-                  <button 
+                  <button
                     onClick={addTask}
                     className="add-btn"
                     disabled={!newTask.title.trim()}
@@ -491,7 +522,7 @@ const Board = () => {
             <div className="empty-illustration">🎯</div>
             <h2>Ready to get organized?</h2>
             <p>Create your first project and start managing tasks like a pro</p>
-            <button 
+            <button
               className="cta-button"
               onClick={() => setShowNewProjectModal(true)}
             >
@@ -503,176 +534,111 @@ const Board = () => {
       )}
 
       {/* New Project Modal */}
- {showNewProjectModal && (
-  <div className="modal-overlay">
-    <div className="modal-content">
-      <div className="modal-header">
-        <h3>Create New Project</h3>
-        <button 
-          className="modal-close"
-          onClick={() => setShowNewProjectModal(false)}
-        >
-          ×
-        </button>
-      </div>
-      <div className="modal-body">
-        <div className="form-group">
-          <label>Project Name *</label>
-          <input
-            type="text"
-            value={newProject.name}
-            onChange={(e) => setNewProject(prev => ({ ...prev, name: e.target.value }))}
-            placeholder="Enter project name"
-          />
-        </div>
-        
-        <div className="form-row">
-          <div className="form-group">
-            <label>Start Date</label>
-            <input
-              type="date"
-              value={newProject.startDate}
-              onChange={(e) => setNewProject(prev => ({ ...prev, startDate: e.target.value }))}
-            />
-          </div>
-          <div className="form-group">
-            <label>End Date</label>
-            <input
-              type="date"
-              value={newProject.endDate}
-              onChange={(e) => setNewProject(prev => ({ ...prev, endDate: e.target.value }))}
-            />
-          </div>
-        </div>
-
-        {/* Team Members Assignment */}
-        <div className="form-group">
-          <label>Team Members</label>
-          <div className="team-members-section">
-            <div className="members-input-container">
-              <input
-                type="text"
-                placeholder="Add team member by email..."
-                className="member-input"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && e.target.value.trim()) {
-                    const newMember = {
-                      id: Date.now(),
-                      email: e.target.value.trim(),
-                      role: 'member',
-                      avatar: `https://ui-avatars.com/api/?name=${e.target.value.trim()}&background=667eea&color=fff`
-                    };
-                    setNewProject(prev => ({
-                      ...prev,
-                      teamMembers: [...(prev.teamMembers || []), newMember]
-                    }));
-                    e.target.value = '';
-                  }
-                }}
-              />
-              <button 
-                className="add-member-btn"
-                onClick={(e) => {
-                  const input = e.target.previousElementSibling;
-                  if (input.value.trim()) {
-                    const newMember = {
-                      id: Date.now(),
-                      email: input.value.trim(),
-                      role: 'member',
-                      avatar: `https://ui-avatars.com/api/?name=${input.value.trim()}&background=667eea&color=fff`
-                    };
-                    setNewProject(prev => ({
-                      ...prev,
-                      teamMembers: [...(prev.teamMembers || []), newMember]
-                    }));
-                    input.value = '';
-                  }
-                }}
+      {showNewProjectModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Create New Project</h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowNewProjectModal(false)}
               >
-                <span className="btn-icon">➕</span>
-                Add
+                ×
               </button>
             </div>
-            
-            {/* Selected Team Members */}
-            {newProject.teamMembers && newProject.teamMembers.length > 0 && (
-              <div className="selected-members">
-                <h4>Team Members ({newProject.teamMembers.length})</h4>
-                <div className="members-list">
-                  {newProject.teamMembers.map(member => (
-                    <div key={member.id} className="member-tag">
-                      <img 
-                        src={member.avatar} 
-                        alt={member.email}
-                        className="member-avatar"
-                      />
-                      <span className="member-email">{member.email}</span>
-                      <select
-                        value={member.role}
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Project Name *</label>
+                <input
+                  type="text"
+                  value={newProject.name}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter project name"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start Date</label>
+                  <input
+                    type="date"
+                    value={newProject.startDate}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, startDate: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Date</label>
+                  <input
+                    type="date"
+                    value={newProject.endDate}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, endDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Team Members Assignment */}
+              <div className="form-group">
+                <label>Team Members</label>
+                <div className="team-members-section">
+                  {members.map(member => (
+                    <label key={member.id} className="member-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={newProject.teamMembers.some(m => m.id === member.id)}
                         onChange={(e) => {
-                          setNewProject(prev => ({
-                            ...prev,
-                            teamMembers: prev.teamMembers.map(m => 
-                              m.id === member.id ? { ...m, role: e.target.value } : m
-                            )
-                          }));
+                          if (e.target.checked) {
+                            // Add member
+                            setNewProject(prev => ({
+                              ...prev,
+                              teamMembers: [...prev.teamMembers, member]
+                            }));
+                          } else {
+                            // Remove member
+                            setNewProject(prev => ({
+                              ...prev,
+                              teamMembers: prev.teamMembers.filter(m => m.id !== member.id)
+                            }));
+                          }
                         }}
-                        className="role-select"
-                      >
-                        <option value="member">Member</option>
-                        <option value="admin">Admin</option>
-                        <option value="viewer">Viewer</option>
-                      </select>
-                      <button
-                        onClick={() => {
-                          setNewProject(prev => ({
-                            ...prev,
-                            teamMembers: prev.teamMembers.filter(m => m.id !== member.id)
-                          }));
-                        }}
-                        className="remove-member-btn"
-                      >
-                        ×
-                      </button>
-                    </div>
+                      />
+                      <span>{member.email}</span>
+                    </label>
                   ))}
                 </div>
               </div>
-            )}
+
+
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={newProject.comment}
+                  onChange={(e) => setNewProject(prev => ({ ...prev, comment: e.target.value }))}
+                  placeholder="Project description or notes..."
+                  rows="3"
+                />
+              </div>
+
+
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowNewProjectModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={createNewProject}
+                disabled={!newProject.name.trim()}
+              >
+                <span className="btn-icon">🚀</span>
+                Create Project
+              </button>
+            </div>
           </div>
         </div>
-
-        <div className="form-group">
-          <label>Description</label>
-          <textarea
-            value={newProject.comment}
-            onChange={(e) => setNewProject(prev => ({ ...prev, comment: e.target.value }))}
-            placeholder="Project description or notes..."
-            rows="3"
-          />
-        </div>
-
-   
-      </div>
-      <div className="modal-footer">
-        <button 
-          className="btn-secondary"
-          onClick={() => setShowNewProjectModal(false)}
-        >
-          Cancel
-        </button>
-        <button 
-          className="btn-primary"
-          onClick={createNewProject}
-          disabled={!newProject.name.trim()}
-        >
-          <span className="btn-icon">🚀</span>
-          Create Project
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };
