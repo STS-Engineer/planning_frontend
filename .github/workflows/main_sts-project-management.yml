@@ -26,7 +26,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm i
 
       # If you're using Create React App, GitHub Actions sets CI=true by default,
       # which makes ESLint warnings fail the build. This keeps CI behavior for tests,
@@ -82,4 +82,5 @@ jobs:
           app-name: "sts-project-management"
           slot-name: "Production"
           package: release.zip
+
 
