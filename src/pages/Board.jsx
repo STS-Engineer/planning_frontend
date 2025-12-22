@@ -397,7 +397,7 @@ const Board = () => {
 
         </div>
 
-        <div className="projects-grid">
+       <div className="projects-grid">
           {projects.length > 0 ? (
             projects.map(project => (
               <div
@@ -415,14 +415,64 @@ const Board = () => {
                     <p className="project-dates">
                       {project['start-date']} → {project['end-date']}
                     </p>
+                    {/* Assigned Members */}
+                    {project.members?.length > 0 && (
+                      <div className="project-members">
+                        {project.members.map(member => {
+                          const formattedName = member.email
+                            .split('@')[0]
+                            .replace(/\./g, ' ');
+                          return (
+                            <span key={member.id} className="member-chip">
+                              👤 {formattedName}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
+
                 {project.comment && (
                   <p className="project-description">{project.comment}</p>
                 )}
+
                 <div className="project-actions">
                   <span className="project-status">Active</span>
                   <button className="project-action-btn">⚡</button>
+                  {/* Delete button */}
+                  <button
+                    className="project-action-btn delete-btn"
+                    onClick={async (e) => {
+                      e.stopPropagation(); // Prevent triggering card onClick
+                      if (window.confirm("Are you sure you want to delete this project?")) {
+                        try {
+                          const res = await fetch(`https://plan-back.azurewebsites.net/ajouter/projects/${project.project_id}`, {
+                            method: 'DELETE',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              Authorization: `Bearer ${localStorage.getItem('token')}` // if you use JWT
+                            }
+                          });
+                          const data = await res.json();
+                          if (res.ok) {
+                            // Remove deleted project from state
+                            setProjects(prev => prev.filter(p => p.project_id !== project.project_id));
+                            if (selectedProject?.project_id === project.project_id) setSelectedProject(null);
+                            // Show success toast
+                            toast.success(data.message || "Project deleted successfully!");
+                          } else {
+                            alert(data.error || 'Failed to delete project');
+                          }
+                        } catch (error) {
+                          console.error(error);
+                          alert('Something went wrong');
+                        }
+                      }
+                    }}
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
             ))
@@ -434,6 +484,7 @@ const Board = () => {
             </div>
           )}
         </div>
+
       </div>
 
       {/* Task Board Section - Second Row */}
