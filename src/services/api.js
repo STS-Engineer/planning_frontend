@@ -4,7 +4,7 @@ const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter'; // Adjust to
 class ApiService {
   constructor() {
     this.token = localStorage.getItem('token');
-  }
+  }   
 
   setToken(token) {
     this.token = token;
