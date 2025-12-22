@@ -28,6 +28,7 @@ const Board = () => {
     allowComments: true,
     enableNotifications: true
   });
+  const [creatingProject, setCreatingProject] = useState(false);
   const [activeView, setActiveView] = useState('board'); // 'board' or 'stats'
   const [members, setMembers] = useState([]);
 
@@ -253,15 +254,18 @@ const Board = () => {
     if (!newProject.name.trim()) return;
 
     try {
+      setCreatingProject(true); // start loading
+
       await ApiService.createProject({
         project_name: newProject.name,
         start_date: newProject.startDate,
         end_date: newProject.endDate,
         comment: newProject.comment,
-        members: newProject.teamMembers.map(m => m.id) // ✅ send only IDs
+        members: newProject.teamMembers.map(m => m.id)
       });
 
       await loadUserProjects();
+
       setNewProject({
         name: '',
         startDate: '',
@@ -279,9 +283,12 @@ const Board = () => {
         autoClose: 3000,
         toastClassName: "custom-toast-offset",
       });
+
     } catch (error) {
       console.error('Failed to create project:', error);
       alert('Failed to create project. Please try again.');
+    } finally {
+      setCreatingProject(false); // stop loading
     }
   };
 
@@ -320,65 +327,68 @@ const Board = () => {
   return (
     <div className="board">
       {/* Header Section */}
-      <div className="board-header">
-        <div className="header-content">
-          <div className="header-main">
-            <div className="welcome-section">
-              <h1 className="welcome-title">
-                Welcome back, <span className="user-name">{user?.username || 'User'}!</span>
-              </h1>
-              <p className="welcome-subtitle">Manage your projects and tasks efficiently</p>
+      {user?.role === 'ADMIN' && (
+        <div className="board-header">
+          <div className="header-content">
+            <div className="header-main">
+              <div className="welcome-section">
+                <h1 className="welcome-title">
+                  Welcome back, <span className="user-name">{user?.username || 'User'}!</span>
+                </h1>
+                <p className="welcome-subtitle">Manage your projects and tasks efficiently</p>
+              </div>
+
+              <div className="view-toggle">
+                <button
+                  className={`view-btn ${activeView === 'board' ? 'active' : ''}`}
+                  onClick={() => setActiveView('board')}
+                >
+                  📋 Board View
+                </button>
+                <button
+                  className={`view-btn ${activeView === 'stats' ? 'active' : ''}`}
+                  onClick={() => setActiveView('stats')}
+                >
+                  📊 Statistics
+                </button>
+              </div>
             </div>
 
-            <div className="view-toggle">
-              <button
-                className={`view-btn ${activeView === 'board' ? 'active' : ''}`}
-                onClick={() => setActiveView('board')}
-              >
-                📋 Board View
-              </button>
-              <button
-                className={`view-btn ${activeView === 'stats' ? 'active' : ''}`}
-                onClick={() => setActiveView('stats')}
-              >
-                📊 Statistics
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="quick-stats">
-            <div className="stat-card">
-              <div className="stat-icon">📁</div>
-              <div className="stat-info">
-                <div className="stat-number">{projects.length}</div>
-                <div className="stat-label">Projects</div>
+            {/* Quick Stats */}
+            <div className="quick-stats">
+              <div className="stat-card">
+                <div className="stat-icon">📁</div>
+                <div className="stat-info">
+                  <div className="stat-number">{projects.length}</div>
+                  <div className="stat-label">Projects</div>
+                </div>
               </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon">📝</div>
-              <div className="stat-info">
-                <div className="stat-number">{stats.totalTasks}</div>
-                <div className="stat-label">Total Tasks</div>
+              <div className="stat-card">
+                <div className="stat-icon">📝</div>
+                <div className="stat-info">
+                  <div className="stat-number">{stats.totalTasks}</div>
+                  <div className="stat-label">Total Tasks</div>
+                </div>
               </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon">✅</div>
-              <div className="stat-info">
-                <div className="stat-number">{stats.completedTasks}</div>
-                <div className="stat-label">Completed</div>
+              <div className="stat-card">
+                <div className="stat-icon">✅</div>
+                <div className="stat-info">
+                  <div className="stat-number">{stats.completedTasks}</div>
+                  <div className="stat-label">Completed</div>
+                </div>
               </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon">📈</div>
-              <div className="stat-info">
-                <div className="stat-number">{stats.completionRate}%</div>
-                <div className="stat-label">Progress</div>
+              <div className="stat-card">
+                <div className="stat-icon">📈</div>
+                <div className="stat-info">
+                  <div className="stat-number">{stats.completionRate}%</div>
+                  <div className="stat-label">Progress</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
 
       {/* Projects Section - First Row */}
       <div className="projects-section">
@@ -446,7 +456,7 @@ const Board = () => {
                 <div className="project-actions">
                   <span className="project-status">Active</span>
                   <button className="project-action-btn">⚡</button>
-                         {/* Delete button - visible only to ADMIN */}
+                  {/* Delete button - visible only to ADMIN */}
                   {user?.role === 'ADMIN' && (
                     <button
                       className="project-action-btn delete-btn"
@@ -481,6 +491,7 @@ const Board = () => {
                       🗑️
                     </button>
                   )}
+
                 </div>
               </div>
             ))
@@ -695,11 +706,18 @@ const Board = () => {
               <button
                 className="btn-primary"
                 onClick={createNewProject}
-                disabled={!newProject.name.trim()}
+                disabled={!newProject.name.trim() || creatingProject}
               >
-                <span className="btn-icon">🚀</span>
-                Create Project
+                {creatingProject ? (
+                  <span className="btn-icon spinner"></span>
+                ) : (
+                  <>
+                    <span className="btn-icon">🚀</span>
+                    Create Project
+                  </>
+                )}
               </button>
+
             </div>
           </div>
         </div>
