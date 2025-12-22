@@ -4,7 +4,7 @@ const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter'; // Adjust to
 class ApiService {
   constructor() {
     this.token = localStorage.getItem('token');
-  }   
+  }
 
   setToken(token) {
     this.token = token;
@@ -133,6 +133,15 @@ class ApiService {
   async deleteTask(id) {
     return this.request(`/tasks/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+   // NEW: Update task status for drag and drop
+  async updateTaskStatus(taskId, status) {
+    console.log('Updating task status:', { taskId, status });
+    return this.request(`/tasks/${taskId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
     });
   }
 
