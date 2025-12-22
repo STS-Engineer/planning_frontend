@@ -454,7 +454,7 @@ const Board = () => {
                         e.stopPropagation(); // Prevent triggering card onClick
                         if (window.confirm("Are you sure you want to delete this project?")) {
                           try {
-                            const res = await fetch(`http://localhost:4000/ajouter/projects/${project.project_id}`, {
+                            const res = await fetch(`https://plan-back.azurewebsites.net/ajouter/projects/${project.project_id}`, {
                               method: 'DELETE',
                               headers: {
                                 'Content-Type': 'application/json',
