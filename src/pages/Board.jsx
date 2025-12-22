@@ -4,7 +4,7 @@ import { useAuth } from '../components/context/AuthContext';
 import ApiService from '../services/api';
 import List from './List';
 import './Board.css';
-
+import { toast } from 'react-toastify';
 const Board = () => {
   const { user } = useAuth();
   const [projects, setProjects] = useState([]);
@@ -43,6 +43,7 @@ const Board = () => {
       setLoading(true);
       const response = await ApiService.getProjects(); // Admin/member handled automatically
       setProjects(response.projects);
+      console.log('projects', response.projects);
 
       if (response.projects.length > 0) {
         setSelectedProject(response.projects[0]);
@@ -273,6 +274,11 @@ const Board = () => {
       });
 
       setShowNewProjectModal(false);
+      toast.success('Project created successfully!', {
+        position: "top-center",
+        autoClose: 3000,
+        toastClassName: "custom-toast-offset",
+      });
     } catch (error) {
       console.error('Failed to create project:', error);
       alert('Failed to create project. Please try again.');
@@ -397,7 +403,7 @@ const Board = () => {
 
         </div>
 
-       <div className="projects-grid">
+        <div className="projects-grid">
           {projects.length > 0 ? (
             projects.map(project => (
               <div
@@ -631,30 +637,36 @@ const Board = () => {
               <div className="form-group">
                 <label>Team Members</label>
                 <div className="team-members-section">
-                  {members.map(member => (
-                    <label key={member.id} className="member-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={newProject.teamMembers.some(m => m.id === member.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            // Add member
-                            setNewProject(prev => ({
-                              ...prev,
-                              teamMembers: [...prev.teamMembers, member]
-                            }));
-                          } else {
-                            // Remove member
-                            setNewProject(prev => ({
-                              ...prev,
-                              teamMembers: prev.teamMembers.filter(m => m.id !== member.id)
-                            }));
-                          }
-                        }}
-                      />
-                      <span>{member.email}</span>
-                    </label>
-                  ))}
+                  {members.map(member => {
+                    // Get part before @ and replace dots with spaces
+                    const displayName = member.email.split('@')[0].replace(/\./g, ' ');
+
+                    return (
+                      <label key={member.id} className="member-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={newProject.teamMembers.some(m => m.id === member.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              // Add member
+                              setNewProject(prev => ({
+                                ...prev,
+                                teamMembers: [...prev.teamMembers, member]
+                              }));
+                            } else {
+                              // Remove member
+                              setNewProject(prev => ({
+                                ...prev,
+                                teamMembers: prev.teamMembers.filter(m => m.id !== member.id)
+                              }));
+                            }
+                          }}
+                        />
+                        <span>{displayName}</span>
+                      </label>
+                    );
+                  })}
+
                 </div>
               </div>
 
