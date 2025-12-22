@@ -5,6 +5,7 @@ import ApiService from '../services/api';
 import List from './List';
 import './Board.css';
 import { toast } from 'react-toastify';
+
 const Board = () => {
   const { user } = useAuth();
   const [projects, setProjects] = useState([]);
@@ -23,16 +24,15 @@ const Board = () => {
     startDate: '',
     endDate: '',
     comment: '',
-    teamMembers: [], // Add this line
+    teamMembers: [],
     isPublic: false,
     allowComments: true,
     enableNotifications: true
   });
   const [creatingProject, setCreatingProject] = useState(false);
-  const [activeView, setActiveView] = useState('board'); // 'board' or 'stats'
+  const [activeView, setActiveView] = useState('board');
   const [members, setMembers] = useState([]);
 
-  // Load user's projects on component mount
   useEffect(() => {
     if (user) {
       loadUserProjects();
@@ -42,16 +42,12 @@ const Board = () => {
   const loadUserProjects = async () => {
     try {
       setLoading(true);
-      const response = await ApiService.getProjects(); // Admin/member handled automatically
+      const response = await ApiService.getProjects();
       setProjects(response.projects);
       console.log('projects', response.projects);
 
-      if (response.projects.length > 0) {
-        setSelectedProject(response.projects[0]);
-        await loadProjectTasks(response.projects[0].project_id);
-      } else {
-        setLists(getInitialBoardStructure());
-      }
+      setLists(getInitialBoardStructure());
+      setSelectedProject(null);
     } catch (error) {
       console.error('Failed to load projects:', error);
       setLists(getInitialBoardStructure());
@@ -59,7 +55,6 @@ const Board = () => {
       setLoading(false);
     }
   };
-
 
   const loadProjectTasks = async (projectId) => {
     try {
@@ -71,7 +66,6 @@ const Board = () => {
       setLists(getInitialBoardStructure());
     }
   };
-
 
   const loadMembers = async () => {
     try {
@@ -107,9 +101,16 @@ const Board = () => {
   ];
 
   const transformTasksToBoard = (tasks) => {
-    const todoTasks = tasks.filter((_, index) => index % 3 === 0);
-    const inProgressTasks = tasks.filter((_, index) => index % 3 === 1);
-    const doneTasks = tasks.filter((_, index) => index % 3 === 2);
+    // Group tasks by their actual status from database
+    const todoTasks = tasks.filter(task => task.status === 'todo' || !task.status);
+    const inProgressTasks = tasks.filter(task => task.status === 'in_progress');
+    const doneTasks = tasks.filter(task => task.status === 'done');
+
+    console.log('Task distribution:', {
+      todo: todoTasks.length,
+      in_progress: inProgressTasks.length,
+      done: doneTasks.length
+    });
 
     return [
       {
@@ -126,7 +127,8 @@ const Board = () => {
           priority: 'medium',
           assignee: user?.username?.substring(0, 2).toUpperCase() || 'ME',
           projectId: task.project_id,
-          databaseId: task.task_id
+          databaseId: task.task_id,
+          status: task.status || 'todo'
         }))
       },
       {
@@ -143,7 +145,8 @@ const Board = () => {
           priority: 'high',
           assignee: user?.username?.substring(0, 2).toUpperCase() || 'ME',
           projectId: task.project_id,
-          databaseId: task.task_id
+          databaseId: task.task_id,
+          status: task.status
         }))
       },
       {
@@ -160,7 +163,8 @@ const Board = () => {
           priority: 'low',
           assignee: user?.username?.substring(0, 2).toUpperCase() || 'ME',
           projectId: task.project_id,
-          databaseId: task.task_id
+          databaseId: task.task_id,
+          status: task.status
         }))
       }
     ];
@@ -178,13 +182,27 @@ const Board = () => {
   const moveCard = async (cardId, fromListId, toListId) => {
     if (fromListId === toListId) return;
 
+    // Map list IDs to status values
+    const listIdToStatus = {
+      1: 'todo',
+      2: 'in_progress',
+      3: 'done'
+    };
+
+    const newStatus = listIdToStatus[toListId];
+
+    console.log(`🎯 Moving task ${cardId} from list ${fromListId} to list ${toListId} (status: ${newStatus})`);
+
+    // Optimistically update UI
+    const fromList = lists.find(list => list.id === fromListId);
+    const card = fromList?.cards.find(c => c.id === cardId);
+
+    if (!card) {
+      console.error('Card not found:', cardId);
+      return;
+    }
+
     setLists(prev => {
-      const fromList = prev.find(list => list.id === fromListId);
-      const toList = prev.find(list => list.id === toListId);
-      const card = fromList.cards.find(c => c.id === cardId);
-
-      if (!card) return prev;
-
       return prev.map(list => {
         if (list.id === fromListId) {
           return {
@@ -195,7 +213,7 @@ const Board = () => {
         if (list.id === toListId) {
           return {
             ...list,
-            cards: [...list.cards, card]
+            cards: [...list.cards, { ...card, status: newStatus }]
           };
         }
         return list;
@@ -203,21 +221,46 @@ const Board = () => {
     });
 
     try {
-      console.log(`Moving task ${cardId} from list ${fromListId} to list ${toListId}`);
+      // Save to database
+      await ApiService.updateTaskStatus(cardId, newStatus);
+      
+      console.log('✅ Task status updated successfully in database');
+      
+      toast.success('Task moved successfully!', {
+        position: "top-center",
+        autoClose: 1500,
+      });
     } catch (error) {
-      console.error('Failed to update task status:', error);
+      console.error('❌ Failed to update task status:', error);
+      
+      // Revert UI on error
       loadProjectTasks(selectedProject.project_id);
+      
+      toast.error('Failed to move task. Please try again.', {
+        position: "top-center",
+        autoClose: 3000,
+      });
     }
   };
 
   const addTask = async () => {
     if (!newTask.title.trim() || !selectedProject) return;
 
+    // Map list IDs to status values
+    const listIdToStatus = {
+      1: 'todo',
+      2: 'in_progress',
+      3: 'done'
+    };
+
+    const taskStatus = listIdToStatus[newTask.listId];
+
     try {
       const response = await ApiService.createTask({
         task_name: newTask.title,
         task_description: newTask.description,
-        project_id: selectedProject.project_id
+        project_id: selectedProject.project_id,
+        status: taskStatus
       });
 
       const newCard = {
@@ -229,7 +272,8 @@ const Board = () => {
         priority: newTask.priority,
         assignee: user?.username?.substring(0, 2).toUpperCase() || 'ME',
         projectId: selectedProject.project_id,
-        databaseId: response.task.task_id
+        databaseId: response.task.task_id,
+        status: response.task.status
       };
 
       setLists(prev => prev.map(list =>
@@ -244,9 +288,17 @@ const Board = () => {
         listId: 1,
         priority: 'medium'
       });
+
+      toast.success('Task created successfully!', {
+        position: "top-center",
+        autoClose: 2000,
+      });
     } catch (error) {
       console.error('Failed to create task:', error);
-      alert('Failed to create task. Please try again.');
+      toast.error(error.message || 'Failed to create task. Please try again.', {
+        position: "top-center",
+        autoClose: 3000,
+      });
     }
   };
 
@@ -254,7 +306,7 @@ const Board = () => {
     if (!newProject.name.trim()) return;
 
     try {
-      setCreatingProject(true); // start loading
+      setCreatingProject(true);
 
       await ApiService.createProject({
         project_name: newProject.name,
@@ -286,21 +338,35 @@ const Board = () => {
 
     } catch (error) {
       console.error('Failed to create project:', error);
-      alert('Failed to create project. Please try again.');
+      toast.error('Failed to create project. Please try again.', {
+        position: "top-center",
+        autoClose: 3000,
+      });
     } finally {
-      setCreatingProject(false); // stop loading
+      setCreatingProject(false);
     }
   };
-
 
   const deleteTask = async (taskId) => {
     try {
       await ApiService.deleteTask(taskId);
       await loadProjectTasks(selectedProject.project_id);
+      toast.success('Task deleted successfully!', {
+        position: "top-center",
+        autoClose: 2000,
+      });
     } catch (error) {
       console.error('Failed to delete task:', error);
-      alert('Failed to delete task. Please try again.');
+      toast.error('Failed to delete task. Please try again.', {
+        position: "top-center",
+        autoClose: 3000,
+      });
     }
+  };
+
+  const isProjectMember = () => {
+    if (!selectedProject || !user) return false;
+    return selectedProject.members?.some(member => member.id === user.id) || user.role === 'ADMIN';
   };
 
   const getStats = () => {
@@ -325,285 +391,310 @@ const Board = () => {
   }
 
   return (
-    <div className="board">
-      {/* Header Section */}
-      {user?.role === 'ADMIN' && (
-        <div className="board-header">
-          <div className="header-content">
-            <div className="header-main">
-              <div className="welcome-section">
-                <h1 className="welcome-title">
-                  Welcome back, <span className="user-name">{user?.username || 'User'}!</span>
-                </h1>
-                <p className="welcome-subtitle">Manage your projects and tasks efficiently</p>
-              </div>
-
-              <div className="view-toggle">
-                <button
-                  className={`view-btn ${activeView === 'board' ? 'active' : ''}`}
-                  onClick={() => setActiveView('board')}
-                >
-                  📋 Board View
-                </button>
-                <button
-                  className={`view-btn ${activeView === 'stats' ? 'active' : ''}`}
-                  onClick={() => setActiveView('stats')}
-                >
-                  📊 Statistics
-                </button>
-              </div>
+    <div className="board-container">
+      <div className="board-header">
+        <div className="header-content">
+          <div className="header-main">
+            <div className="welcome-section">
+              <h1 className="welcome-title">
+                Welcome back, <span className="user-name">{user?.username || 'User'}!</span>
+              </h1>
+              <p className="welcome-subtitle">Manage your projects and tasks efficiently</p>
             </div>
 
-            {/* Quick Stats */}
-            <div className="quick-stats">
-              <div className="stat-card">
-                <div className="stat-icon">📁</div>
-                <div className="stat-info">
-                  <div className="stat-number">{projects.length}</div>
-                  <div className="stat-label">Projects</div>
-                </div>
+            <div className="view-toggle">
+              <button
+                className={`view-btn ${activeView === 'board' ? 'active' : ''}`}
+                onClick={() => setActiveView('board')}
+              >
+                📋 Board View
+              </button>
+              <button
+                className={`view-btn ${activeView === 'stats' ? 'active' : ''}`}
+                onClick={() => setActiveView('stats')}
+              >
+                📊 Statistics
+              </button>
+            </div>
+          </div>
+
+          <div className="quick-stats">
+            <div className="stat-card">
+              <div className="stat-icon">📁</div>
+              <div className="stat-info">
+                <div className="stat-number">{projects.length}</div>
+                <div className="stat-label">Projects</div>
               </div>
-              <div className="stat-card">
-                <div className="stat-icon">📝</div>
-                <div className="stat-info">
-                  <div className="stat-number">{stats.totalTasks}</div>
-                  <div className="stat-label">Total Tasks</div>
-                </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">📝</div>
+              <div className="stat-info">
+                <div className="stat-number">{stats.totalTasks}</div>
+                <div className="stat-label">Total Tasks</div>
               </div>
-              <div className="stat-card">
-                <div className="stat-icon">✅</div>
-                <div className="stat-info">
-                  <div className="stat-number">{stats.completedTasks}</div>
-                  <div className="stat-label">Completed</div>
-                </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">✅</div>
+              <div className="stat-info">
+                <div className="stat-number">{stats.completedTasks}</div>
+                <div className="stat-label">Completed</div>
               </div>
-              <div className="stat-card">
-                <div className="stat-icon">📈</div>
-                <div className="stat-info">
-                  <div className="stat-number">{stats.completionRate}%</div>
-                  <div className="stat-label">Progress</div>
-                </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">📈</div>
+              <div className="stat-info">
+                <div className="stat-number">{stats.completionRate}%</div>
+                <div className="stat-label">Progress</div>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
+      <div className="board">
+        {activeView === 'board' && (
+          <>
+            <div className="projects-section">
+              <div className="section-header">
+                <h2 className="section-title">
+                  <span className="title-icon">🚀</span>
+                  Your Projects
+                </h2>
 
-      {/* Projects Section - First Row */}
-      <div className="projects-section">
-        <div className="section-header">
-          <h2 className="section-title">
-            <span className="title-icon">🚀</span>
-            Your Projects
-          </h2>
+                {user?.role === 'ADMIN' && (
+                  <button
+                    className="create-project-btn"
+                    onClick={() => {
+                      setShowNewProjectModal(true);
+                      loadMembers();
+                    }}
+                  >
+                    <span className="btn-icon">➕</span>
+                    New Project
+                  </button>
+                )}
+              </div>
 
-          {user?.role === 'ADMIN' && (
-            <button
-              className="create-project-btn"
-              onClick={() => {
-                setShowNewProjectModal(true);
-                loadMembers();
-              }}
-            >
-              <span className="btn-icon">➕</span>
-              New Project
-            </button>
-          )}
-
-        </div>
-
-        <div className="projects-grid">
-          {projects.length > 0 ? (
-            projects.map(project => (
-              <div
-                key={project.project_id}
-                className={`project-card ${selectedProject?.project_id === project.project_id ? 'active' : ''}`}
-                onClick={() => {
-                  setSelectedProject(project);
-                  loadProjectTasks(project.project_id);
-                }}
-              >
-                <div className="project-header">
-                  <div className="project-icon">📋</div>
-                  <div className="project-info">
-                    <h3 className="project-name">{project['project-name']}</h3>
-                    <p className="project-dates">
-                      {project['start-date']} → {project['end-date']}
-                    </p>
-                    {/* Assigned Members */}
-                    {project.members?.length > 0 && (
-                      <div className="project-members">
-                        {project.members.map(member => {
-                          const formattedName = member.email
-                            .split('@')[0]
-                            .replace(/\./g, ' ');
-                          return (
-                            <span key={member.id} className="member-chip">
-                              👤 {formattedName}
-                            </span>
-                          );
-                        })}
+              <div className="projects-grid">
+                {projects.length > 0 ? (
+                  projects.map(project => (
+                    <div
+                      key={project.project_id}
+                      className={`project-card ${selectedProject?.project_id === project.project_id ? 'active' : ''}`}
+                      onClick={() => {
+                        setSelectedProject(project);
+                        loadProjectTasks(project.project_id);
+                      }}
+                    >
+                      <div className="project-header">
+                        <div className="project-icon">📋</div>
+                        <div className="project-info">
+                          <h3 className="project-name">{project['project-name']}</h3>
+                          <p className="project-dates">
+                            {project['start-date']} → {project['end-date']}
+                          </p>
+                          {project.members?.length > 0 && (
+                            <div className="project-members">
+                              {project.members.map(member => {
+                                const formattedName = member.email
+                                  .split('@')[0]
+                                  .replace(/\./g, ' ');
+                                return (
+                                  <span key={member.id} className="member-chip">
+                                    👤 {formattedName}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
+
+                      {project.comment && (
+                        <p className="project-description">{project.comment}</p>
+                      )}
+
+                      <div className="project-actions">
+                        <span className="project-status">Active</span>
+                        <button className="project-action-btn">⚡</button>
+                        {user?.role === 'ADMIN' && (
+                          <button
+                            className="project-action-btn delete-btn"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (window.confirm("Are you sure you want to delete this project?")) {
+                                try {
+                                  const res = await fetch(`https://plan-back.azurewebsites.net/ajouter/projects/${project.project_id}`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      Authorization: `Bearer ${localStorage.getItem('token')}`
+                                    }
+                                  });
+                                  const data = await res.json();
+                                  if (res.ok) {
+                                    setProjects(prev => prev.filter(p => p.project_id !== project.project_id));
+                                    if (selectedProject?.project_id === project.project_id) {
+                                      setSelectedProject(null);
+                                      setLists(getInitialBoardStructure());
+                                    }
+                                    toast.success(data.message || "Project deleted successfully!");
+                                  } else {
+                                    toast.error(data.error || 'Failed to delete project');
+                                  }
+                                } catch (error) {
+                                  console.error(error);
+                                  toast.error('Something went wrong');
+                                }
+                              }
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="empty-projects">
+                    <div className="empty-icon">📁</div>
+                    <h3>No projects yet</h3>
+                    <p>Create your first project to get started</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {selectedProject && isProjectMember() && (
+              <div className="task-board-section">
+                <div className="section-header">
+                  <h2 className="section-title">
+                    <span className="title-icon">🎯</span>
+                    Task Board - {selectedProject['project-name']}
+                  </h2>
+                </div>
+
+                <div className="quick-add-section">
+                  <div className="add-task-card">
+                    <div className="add-task-header">
+                      <span className="add-icon">➕</span>
+                      <h3>Quick Add Task</h3>
+                    </div>
+                    <div className="add-task-form">
+                      <input
+                        type="text"
+                        placeholder="What needs to be done?"
+                        value={newTask.title}
+                        onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+                        className="task-input"
+                        onKeyPress={(e) => e.key === 'Enter' && addTask()}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Add description..."
+                        value={newTask.description}
+                        onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                        className="task-description"
+                      />
+                      <div className="task-options">
+                        <select
+                          value={newTask.listId}
+                          onChange={(e) => setNewTask(prev => ({ ...prev, listId: parseInt(e.target.value) }))}
+                          className="option-select"
+                        >
+                          {lists.map(list => (
+                            <option key={list.id} value={list.id}>{list.icon} {list.title}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={newTask.priority}
+                          onChange={(e) => setNewTask(prev => ({ ...prev, priority: e.target.value }))}
+                          className="option-select"
+                        >
+                          <option value="low">🟢 Low</option>
+                          <option value="medium">🟡 Medium</option>
+                          <option value="high">🔴 High</option>
+                        </select>
+                        <button
+                          onClick={addTask}
+                          className="add-btn"
+                          disabled={!newTask.title.trim()}
+                        >
+                          Add Task
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {project.comment && (
-                  <p className="project-description">{project.comment}</p>
-                )}
+                <div className="lists-container">
+                  {lists.map(list => (
+                    <List
+                      key={list.id}
+                      list={list}
+                      onCardMove={moveCard}
+                      onDeleteTask={deleteTask}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
-                <div className="project-actions">
-                  <span className="project-status">Active</span>
-                  <button className="project-action-btn">⚡</button>
-                  {/* Delete button - visible only to ADMIN */}
+            {selectedProject && !isProjectMember() && (
+              <div className="welcome-empty-state">
+                <div className="empty-content">
+                  <div className="empty-illustration">🔒</div>
+                  <h2>Access Restricted</h2>
+                  <p>You don't have access to this project's tasks</p>
+                  <p style={{fontSize: '14px', color: '#666', marginTop: '10px'}}>
+                    Contact the project administrator to be added as a member
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!selectedProject && projects.length > 0 && (
+              <div className="welcome-empty-state">
+                <div className="empty-content">
+                  <div className="empty-illustration">👆</div>
+                  <h2>Select a Project</h2>
+                  <p>Click on a project above to view its details and manage tasks</p>
+                </div>
+              </div>
+            )}
+
+            {!selectedProject && projects.length === 0 && (
+              <div className="welcome-empty-state">
+                <div className="empty-content">
+                  <div className="empty-illustration">🎯</div>
+                  <h2>Ready to get organized?</h2>
+                  <p>Create your first project and start managing tasks like a pro</p>
                   {user?.role === 'ADMIN' && (
                     <button
-                      className="project-action-btn delete-btn"
-                      onClick={async (e) => {
-                        e.stopPropagation(); // Prevent triggering card onClick
-                        if (window.confirm("Are you sure you want to delete this project?")) {
-                          try {
-                            const res = await fetch(`https://plan-back.azurewebsites.net/ajouter/projects/${project.project_id}`, {
-                              method: 'DELETE',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                Authorization: `Bearer ${localStorage.getItem('token')}` // if you use JWT
-                              }
-                            });
-                            const data = await res.json();
-                            if (res.ok) {
-                              // Remove deleted project from state
-                              setProjects(prev => prev.filter(p => p.project_id !== project.project_id));
-                              if (selectedProject?.project_id === project.project_id) setSelectedProject(null);
-                              // Show success toast
-                              toast.success(data.message || "Project deleted successfully!");
-                            } else {
-                              alert(data.error || 'Failed to delete project');
-                            }
-                          } catch (error) {
-                            console.error(error);
-                            alert('Something went wrong');
-                          }
-                        }
+                      className="cta-button"
+                      onClick={() => {
+                        setShowNewProjectModal(true);
+                        loadMembers();
                       }}
                     >
-                      🗑️
+                      <span className="btn-icon">🚀</span>
+                      Create Your First Project
                     </button>
                   )}
-
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="empty-projects">
-              <div className="empty-icon">📁</div>
-              <h3>No projects yet</h3>
-              <p>Create your first project to get started</p>
-            </div>
-          )}
-        </div>
+            )}
+          </>
+        )}
 
+        {activeView === 'stats' && (
+          <div className="statistics-section">
+            <h2>📊 Project Statistics</h2>
+            <p>Statistics view content goes here...</p>
+          </div>
+        )}
       </div>
 
-      {/* Task Board Section - Second Row */}
-      {selectedProject && (
-        <div className="task-board-section">
-          <div className="section-header">
-            <h2 className="section-title">
-              <span className="title-icon">🎯</span>
-              Task Board - {selectedProject['project-name']}
-            </h2>
-
-          </div>
-
-          {/* Quick Add Task */}
-          <div className="quick-add-section">
-            <div className="add-task-card">
-              <div className="add-task-header">
-                <span className="add-icon">➕</span>
-                <h3>Quick Add Task</h3>
-              </div>
-              <div className="add-task-form">
-                <input
-                  type="text"
-                  placeholder="What needs to be done?"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
-                  className="task-input"
-                  onKeyPress={(e) => e.key === 'Enter' && addTask()}
-                />
-                <input
-                  type="text"
-                  placeholder="Add description..."
-                  value={newTask.description}
-                  onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                  className="task-description"
-                />
-                <div className="task-options">
-                  <select
-                    value={newTask.listId}
-                    onChange={(e) => setNewTask(prev => ({ ...prev, listId: parseInt(e.target.value) }))}
-                    className="option-select"
-                  >
-                    {lists.map(list => (
-                      <option key={list.id} value={list.id}>{list.icon} {list.title}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={newTask.priority}
-                    onChange={(e) => setNewTask(prev => ({ ...prev, priority: e.target.value }))}
-                    className="option-select"
-                  >
-                    <option value="low">🟢 Low</option>
-                    <option value="medium">🟡 Medium</option>
-                    <option value="high">🔴 High</option>
-                  </select>
-                  <button
-                    onClick={addTask}
-                    className="add-btn"
-                    disabled={!newTask.title.trim()}
-                  >
-                    Add Task
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Lists Container */}
-          <div className="lists-container">
-            {lists.map(list => (
-              <List
-                key={list.id}
-                list={list}
-                onCardMove={moveCard}
-                onDeleteTask={deleteTask}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* No Project Selected */}
-      {!selectedProject && projects.length === 0 && (
-        <div className="welcome-empty-state">
-          <div className="empty-content">
-            <div className="empty-illustration">🎯</div>
-            <h2>Ready to get organized?</h2>
-            <p>Create your first project and start managing tasks like a pro</p>
-            <button
-              className="cta-button"
-              onClick={() => setShowNewProjectModal(true)}
-            >
-              <span className="btn-icon">🚀</span>
-              Create Your First Project
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* New Project Modal */}
       {showNewProjectModal && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -646,14 +737,11 @@ const Board = () => {
                 </div>
               </div>
 
-              {/* Team Members Assignment */}
               <div className="form-group">
                 <label>Team Members</label>
                 <div className="team-members-section">
                   {members.map(member => {
-                    // Get part before @ and replace dots with spaces
                     const displayName = member.email.split('@')[0].replace(/\./g, ' ');
-
                     return (
                       <label key={member.id} className="member-checkbox">
                         <input
@@ -661,13 +749,11 @@ const Board = () => {
                           checked={newProject.teamMembers.some(m => m.id === member.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              // Add member
                               setNewProject(prev => ({
                                 ...prev,
                                 teamMembers: [...prev.teamMembers, member]
                               }));
                             } else {
-                              // Remove member
                               setNewProject(prev => ({
                                 ...prev,
                                 teamMembers: prev.teamMembers.filter(m => m.id !== member.id)
@@ -679,10 +765,8 @@ const Board = () => {
                       </label>
                     );
                   })}
-
                 </div>
               </div>
-
 
               <div className="form-group">
                 <label>Description</label>
@@ -693,8 +777,6 @@ const Board = () => {
                   rows="3"
                 />
               </div>
-
-
             </div>
             <div className="modal-footer">
               <button
@@ -717,7 +799,6 @@ const Board = () => {
                   </>
                 )}
               </button>
-
             </div>
           </div>
         </div>
