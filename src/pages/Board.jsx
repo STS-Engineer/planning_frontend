@@ -446,39 +446,41 @@ const Board = () => {
                 <div className="project-actions">
                   <span className="project-status">Active</span>
                   <button className="project-action-btn">⚡</button>
-                  {/* Delete button */}
-                  <button
-                    className="project-action-btn delete-btn"
-                    onClick={async (e) => {
-                      e.stopPropagation(); // Prevent triggering card onClick
-                      if (window.confirm("Are you sure you want to delete this project?")) {
-                        try {
-                          const res = await fetch(`https://plan-back.azurewebsites.net/ajouter/projects/${project.project_id}`, {
-                            method: 'DELETE',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              Authorization: `Bearer ${localStorage.getItem('token')}` // if you use JWT
+                         {/* Delete button - visible only to ADMIN */}
+                  {user?.role === 'ADMIN' && (
+                    <button
+                      className="project-action-btn delete-btn"
+                      onClick={async (e) => {
+                        e.stopPropagation(); // Prevent triggering card onClick
+                        if (window.confirm("Are you sure you want to delete this project?")) {
+                          try {
+                            const res = await fetch(`http://localhost:4000/ajouter/projects/${project.project_id}`, {
+                              method: 'DELETE',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${localStorage.getItem('token')}` // if you use JWT
+                              }
+                            });
+                            const data = await res.json();
+                            if (res.ok) {
+                              // Remove deleted project from state
+                              setProjects(prev => prev.filter(p => p.project_id !== project.project_id));
+                              if (selectedProject?.project_id === project.project_id) setSelectedProject(null);
+                              // Show success toast
+                              toast.success(data.message || "Project deleted successfully!");
+                            } else {
+                              alert(data.error || 'Failed to delete project');
                             }
-                          });
-                          const data = await res.json();
-                          if (res.ok) {
-                            // Remove deleted project from state
-                            setProjects(prev => prev.filter(p => p.project_id !== project.project_id));
-                            if (selectedProject?.project_id === project.project_id) setSelectedProject(null);
-                            // Show success toast
-                            toast.success(data.message || "Project deleted successfully!");
-                          } else {
-                            alert(data.error || 'Failed to delete project');
+                          } catch (error) {
+                            console.error(error);
+                            alert('Something went wrong');
                           }
-                        } catch (error) {
-                          console.error(error);
-                          alert('Something went wrong');
                         }
-                      }
-                    }}
-                  >
-                    🗑️
-                  </button>
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  )}
                 </div>
               </div>
             ))
