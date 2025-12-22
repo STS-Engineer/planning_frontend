@@ -7,12 +7,26 @@ import Dashboard from './pages/Dashboard';
 import './App.css';
 import SignIn from './components/auth/signin';
 import SignUp from './components/auth/signup';
+import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer } from 'react-toastify';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <div className="App">
+      {/* ToastContainer with center position */}
+          <ToastContainer
+            position="top-center"  // Changed from "top-right" to "top-center"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+          />
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<SignIn />} />
