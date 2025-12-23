@@ -1,5 +1,5 @@
 // src/services/api.js
-const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter'; // Adjust to your backend URL
+const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter';
 
 class ApiService {
   constructor() {
@@ -51,7 +51,7 @@ class ApiService {
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(data.message || 'Login failed');
     }
@@ -70,7 +70,7 @@ class ApiService {
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(data.message || 'Registration failed');
     }
@@ -136,13 +136,41 @@ class ApiService {
     });
   }
 
-   // NEW: Update task status for drag and drop
+  // Update task status for drag and drop
   async updateTaskStatus(taskId, status) {
     console.log('Updating task status:', { taskId, status });
     return this.request(`/tasks/${taskId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+  }
+
+  // NEW: Update task assignee
+  async updateTaskAssignee(taskId, assigneeId) {
+    return this.request(`/tasks/${taskId}/assignee`, {
+      method: 'PATCH',
+      body: JSON.stringify({ assignee_id: assigneeId }),
+    });
+  }
+
+  // NEW: Update task dates
+  async updateTaskDates(taskId, startDate, endDate) {
+    return this.request(`/tasks/${taskId}/dates`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        start_date: startDate,
+        end_date: endDate
+      }),
+    });
+  }
+
+  // Statistics methods
+  async getProjectStatistics(projectId) {
+    return this.request(`/statistics/project/${projectId}`);
+  }
+
+  async getStatisticsSummary() {
+    return this.request('/statistics/summary');
   }
 
   // Dashboard methods
@@ -155,64 +183,61 @@ class ApiService {
     return this.request(`/users/${id}`);
   }
 
+  async getUsers() {
+    return this.request('/users');
+  }
+
+  async getMyProjects() {
+    return this.request('/api/my-projects');
+  }
+
+  async getMembers() {
+    return this.request('/users/members');
+  }
+
+  async searchUsers(email) {
+    return this.request(`/users/search/${encodeURIComponent(email)}`);
+  }
+
+  async getUsersBatch(userIds) {
+    return this.request('/users/batch', {
+      method: 'POST',
+      body: JSON.stringify({ userIds }),
+    });
+  }
+
+  async getProfile() {
+    return this.request('/profile');
+  }
+
+  // Add to ApiService class in api.js
+  async getProjectMembers(projectId) {
+    return this.request(`/projects/${projectId}/members`);
+  }
+
+  async updateUser(id, userData) {
+    return this.request(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async updateProfile(userData) {
+    return this.request('/profile', {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async getProjectTeam(projectId) {
+    return this.request(`/projects/${projectId}/team`);
+  }
+
   logout() {
     this.token = null;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   }
-
-
-  // src/services/api.js - Add these methods to your ApiService class
-
-// User methods
-async getUsers() {
-  return this.request('/users');
-}
-
-async getMyProjects() {
-  return this.request('/api/my-projects');
-}
-
-// ✅ ADD THIS
-async getMembers() {
-  return this.request('/users/members');
-}
-
-async searchUsers(email) {
-  return this.request(`/users/search/${encodeURIComponent(email)}`);
-}
-
-async getUsersBatch(userIds) {
-  return this.request('/users/batch', {
-    method: 'POST',
-    body: JSON.stringify({ userIds }),
-  });
-}
-
-async getProfile() {
-  return this.request('/profile');
-}
-
-async updateUser(id, userData) {
-  return this.request(`/users/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(userData),
-  });
-}
-
-async updateProfile(userData) {
-  return this.request('/profile', {
-    method: 'PUT',
-    body: JSON.stringify(userData),
-  });
-}
-
-async getProjectTeam(projectId) {
-  return this.request(`/projects/${projectId}/team`);
-}
-
-//fetch members 
-
 }
 
 export default new ApiService();
