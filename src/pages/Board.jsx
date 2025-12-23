@@ -551,12 +551,14 @@ const Board = () => {
             >
               📋 Board View
             </button>
-            <button
+           {user.role ==='ADMIN' && (
+             <button
               className={`view-btn ${activeView === 'stats' ? 'active' : ''}`}
               onClick={() => setActiveView('stats')}
             >
               📊 Statistics
             </button>
+            )}
           </div>
         </div>
 
