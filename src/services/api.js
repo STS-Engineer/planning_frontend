@@ -1,5 +1,5 @@
 // src/services/api.js
-const API_BASE_URL = 'http://localhost:4000/ajouter';
+const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter';
 
 class ApiService {
   constructor() {
