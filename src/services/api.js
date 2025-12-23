@@ -1,5 +1,5 @@
 // src/services/api.js
-const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter';
+const API_BASE_URL = 'http://localhost:4000/ajouter';
 
 class ApiService {
   constructor() {
@@ -77,6 +77,8 @@ class ApiService {
 
     return data;
   }
+
+
 
   // Project methods
   async createProject(projectData) {
@@ -191,8 +193,27 @@ class ApiService {
     return this.request('/api/my-projects');
   }
 
+  // In your api.js file, update the getMembers function:
   async getMembers() {
-    return this.request('/users/members');
+    try {
+      const response = await this.request('/users/members'); // Use `this.request()`
+      console.log("👥 API Members response:", response);
+
+      // Handle different response structures
+      if (Array.isArray(response)) {
+        return { users: response };
+      } else if (response && response.users) {
+        return response;
+      } else if (response && response.data) {
+        return { users: response.data };
+      } else {
+        console.warn("⚠️ Unexpected members response structure:", response);
+        return { users: [] };
+      }
+    } catch (error) {
+      console.error("Error fetching members:", error);
+      return { users: [] };
+    }
   }
 
   async searchUsers(email) {
@@ -238,6 +259,103 @@ class ApiService {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   }
+
+  // In your ApiService class, update the getProjectsByStats method:
+  async getProjectsByStats() {
+    try {
+      console.log("🔄 Starting getProjectsByStats()");
+
+      // 1. Get statistics summary
+      console.log("📊 Fetching statistics summary...");
+      const summary = await this.getStatisticsSummary(); // Use `this.`
+      console.log("✅ Statistics summary:", summary);
+
+      // 2. Get projects
+      console.log("📋 Fetching projects...");
+      const projectsResponse = await this.getProjects(); // Use `this.`
+      console.log("📦 Projects response:", projectsResponse);
+
+      // Ensure projects is an array
+      const projects = Array.isArray(projectsResponse.projects)
+        ? projectsResponse.projects
+        : (projectsResponse.projects?.projects || []);
+
+      console.log(`📊 Processing ${projects.length} projects`);
+
+      // Transform projects data to include KPI metrics
+      const projectsWithKPI = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            // Get project statistics
+            const stats = await this.getProjectStatistics(project.project_id || project.id); // Use `this.`
+
+            return {
+              projectId: project.project_id || project.id,
+              projectName: project['project-name'] || project.name || 'Unnamed Project',
+              totalTasks: stats?.totalTasks || 0,
+              todoTasks: stats?.todoTasks || 0,
+              inProgressTasks: stats?.inProgressTasks || 0,
+              doneTasks: stats?.doneTasks || 0,
+              completionRate: stats?.completionRate || 0,
+              totalMembers: stats?.totalMembers || 0,
+              assignedTasks: stats?.assignedTasks || 0,
+              unassignedTasks: stats?.unassignedTasks || 0,
+              projectDuration: stats?.projectDuration || 0,
+              daysRemaining: stats?.daysRemaining || 0,
+              daysElapsed: stats?.daysElapsed || 0,
+              progressPercentage: stats?.progressPercentage || 0,
+              startDate: project['start-date'] || project.start_date,
+              endDate: project['end-date'] || project.end_date
+            };
+          } catch (error) {
+            console.error(`❌ Error processing project ${project.project_id}:`, error);
+            return {
+              projectId: project.project_id || project.id,
+              projectName: project['project-name'] || project.name || 'Unnamed Project',
+              totalTasks: 0,
+              todoTasks: 0,
+              inProgressTasks: 0,
+              doneTasks: 0,
+              completionRate: 0,
+              totalMembers: 0,
+              assignedTasks: 0,
+              unassignedTasks: 0,
+              projectDuration: 0,
+              daysRemaining: 0,
+              daysElapsed: 0,
+              progressPercentage: 0
+            };
+          }
+        })
+      );
+
+      const result = {
+        projects: projectsWithKPI,
+        totalProjects: projectsWithKPI.length,
+        summary: summary || {}
+      };
+
+      console.log("✅ getProjectsByStats result:", result);
+      return result;
+
+    } catch (error) {
+      console.error("❌ Error in getProjectsByStats:", error);
+      return {
+        projects: [],
+        totalProjects: 0,
+        summary: {}
+      };
+    }
+  }
+
+  // You might also want a simpler version for just project stats without member details
+  async getProjectsStatistics() {
+    return this.request('/statistics/projects');
+  }
+
+
+
+
 }
 
 export default new ApiService();
