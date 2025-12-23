@@ -2,7 +2,7 @@
 import React from 'react';
 import './Card.css';
 
-const Card = ({ card, listId }) => {
+const Card = ({ card, onDeleteTask, listId }) => {
   const handleDragStart = (e) => {
     e.dataTransfer.setData('cardId', card.id);
     e.dataTransfer.setData('fromListId', listId);
@@ -22,7 +22,7 @@ const Card = ({ card, listId }) => {
   };
 
   return (
-    <div 
+    <div
       className="card"
       draggable="true"
       onDragStart={handleDragStart}
@@ -31,7 +31,7 @@ const Card = ({ card, listId }) => {
       {card.labels && card.labels.length > 0 && (
         <div className="card-labels">
           {card.labels.map((label, index) => (
-            <span 
+            <span
               key={index}
               className="card-label"
               style={{ backgroundColor: label.color }}
@@ -41,9 +41,20 @@ const Card = ({ card, listId }) => {
           ))}
         </div>
       )}
-      
+
       <div className="card-title">{card.title}</div>
-      
+
+      <div className="card-header">
+        <h4 className="card-title">{card.title}</h4>
+        {/* Add delete button here */}
+        <button
+          className="card-delete-btn"
+          onClick={() => onDeleteTask(card.databaseId)}
+          title="Delete task"
+        >
+          🗑️
+        </button>
+      </div>
       {card.description && (
         <div className="card-description">
           {card.description}
@@ -57,7 +68,7 @@ const Card = ({ card, listId }) => {
             {formatDate(card.dueDate)}
           </div>
         )}
-        
+
         <div className="card-actions">
           <button className="card-action-btn">💬</button>
           <button className="card-action-btn">📎</button>
