@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Card from './Card';
 import './List.css';
 
-const List = ({ list, onCardMove }) => {
+const List = ({ list, onDeleteTask, onCardMove }) => {
   const [newCardTitle, setNewCardTitle] = useState('');
   const [isAddingCard, setIsAddingCard] = useState(false);
 
@@ -56,6 +56,7 @@ const List = ({ list, onCardMove }) => {
             key={card.id}
             card={card}
             listId={list.id}
+            onDeleteTask={onDeleteTask}  
           />
         ))}
       </div>
