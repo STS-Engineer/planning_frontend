@@ -674,14 +674,7 @@ const Board = () => {
                     {/* ADD FILTER BAR SECTION HERE */}
             <div className="filter-bar">
               <div className="filter-header">
-                <h3 className="filter-title">
-                  <span className="filter-icon">🔍</span>
-                  Filter Projects
-                </h3>
                 <div className="filter-stats">
-                  <span className="filter-stat">
-                    Showing {filterStats.filtered} of {filterStats.total} projects
-                  </span>
                   {(searchQuery || filterStatus !== 'all') && (
                     <button className="clear-filters-btn" onClick={clearFilters}>
                       Clear Filters
