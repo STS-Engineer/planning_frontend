@@ -42,8 +42,6 @@ const Card = ({ card, onDeleteTask, listId }) => {
         </div>
       )}
 
-      <div className="card-title">{card.title}</div>
-
       <div className="card-header">
         <h4 className="card-title">{card.title}</h4>
         {/* Add delete button here */}
