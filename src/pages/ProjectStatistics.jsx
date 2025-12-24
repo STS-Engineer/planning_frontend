@@ -209,12 +209,33 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             const projects = projectsData.projects || [];
             console.log(`📊 Extracted ${projects.length} projects from projectsData`);
 
+            // Fetch detailed statistics for each project to get member emails
+            const projectsWithMembers = await Promise.all(
+                projects.map(async (project) => {
+                    try {
+                        const projectStats = await ApiService.getProjectStatistics(project.projectId);
+                        return {
+                            ...project,
+                            memberStats: projectStats.memberStats || [],
+                            totalMembers: projectStats.totalMembers || 0
+                        };
+                    } catch (error) {
+                        console.error(`Error loading details for project ${project.projectId}:`, error);
+                        return {
+                            ...project,
+                            memberStats: [],
+                            totalMembers: 0
+                        };
+                    }
+                })
+            );
+
             // Also get summary separately for global stats
             const summary = await ApiService.getStatisticsSummary();
 
             setAllProjectsStats(summary);
-            setProjectsKPI(projects);
-            setFilteredProjectsKPI(projects);
+            setProjectsKPI(projectsWithMembers);
+            setFilteredProjectsKPI(projectsWithMembers);
             setSelectedMember('all');
             setShowMemberStats(false);
 
@@ -232,7 +253,6 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             setLoading(false);
         }
     };
-
     // ... (keep the existing loadProjectStatistics and other methods as they are) ...
 
     useEffect(() => {
@@ -262,6 +282,32 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             setMemberStats(null);
         } else {
             loadMemberStatistics(memberId);
+        }
+    };
+
+    const loadProjectStatistics = async (projectId) => {
+        try {
+            setLoading(true);
+            console.log('📊 Loading statistics for project:', projectId);
+
+            const response = await ApiService.getProjectStatistics(projectId);
+            console.log('📊 Project statistics response:', response);
+
+            // Extract member emails from memberStats
+            const memberEmails = response.memberStats
+                ? response.memberStats.map(member => member.email).filter(email => email)
+                : [];
+
+            setStats({
+                ...response,
+                memberEmails: memberEmails
+            });
+
+        } catch (error) {
+            console.error('❌ Failed to load project statistics:', error);
+            setError(error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -322,83 +368,83 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                         <p style={{ margin: 0, fontSize: '16px', opacity: 0.95, marginBottom: '20px' }}>
                             Comprehensive statistics across all your projects
                         </p>
-                        {user.role==='ADMIN' && (
-                        <div>
-                                    {/* Member Filter */}
-                        <div style={{
-                            background: 'rgba(255,255,255,0.2)',
-                            padding: '15px',
-                            borderRadius: '12px',
-                            maxWidth: '500px'
-                        }}>
-                            <div style={{
-                                fontSize: '14px',
-                                marginBottom: '10px',
-                                fontWeight: '500'
-                            }}>
-                                👥 Filter by Team Member:
-                            </div>
-                            <div style={{
-                                display: 'flex',
-                                gap: '10px',
-                                alignItems: 'center',
-                                flexWrap: 'wrap'
-                            }}>
-                                <select
-                                    value={selectedMember}
-                                    onChange={(e) => handleMemberFilterChange(e.target.value)}
-                                    style={{
-                                        flex: 1,
-                                        minWidth: '250px',
-                                        padding: '10px 15px',
-                                        borderRadius: '8px',
-                                        border: 'none',
-                                        background: 'white',
-                                        color: '#333',
+                        {user.role === 'ADMIN' && (
+                            <div>
+                                {/* Member Filter */}
+                                <div style={{
+                                    background: 'rgba(255,255,255,0.2)',
+                                    padding: '15px',
+                                    borderRadius: '12px',
+                                    maxWidth: '500px'
+                                }}>
+                                    <div style={{
                                         fontSize: '14px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    <option value="all">👥 All Members (All Projects)</option>
-                                    {members.map(member => (
-                                        <option key={member.id} value={member.id}>
-                                            👤 {member.email?.split('@')[0]?.replace(/\./g, ' ') || `Member ${member.id}`}
-                                        </option>
-                                    ))}
-                                </select>
+                                        marginBottom: '10px',
+                                        fontWeight: '500'
+                                    }}>
+                                        👥 Filter by Team Member:
+                                    </div>
+                                    <div style={{
+                                        display: 'flex',
+                                        gap: '10px',
+                                        alignItems: 'center',
+                                        flexWrap: 'wrap'
+                                    }}>
+                                        <select
+                                            value={selectedMember}
+                                            onChange={(e) => handleMemberFilterChange(e.target.value)}
+                                            style={{
+                                                flex: 1,
+                                                minWidth: '250px',
+                                                padding: '10px 15px',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                background: 'white',
+                                                color: '#333',
+                                                fontSize: '14px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <option value="all">👥 All Members (All Projects)</option>
+                                            {members.map(member => (
+                                                <option key={member.id} value={member.id}>
+                                                    👤 {member.email?.split('@')[0]?.replace(/\./g, ' ') || `Member ${member.id}`}
+                                                </option>
+                                            ))}
+                                        </select>
 
-                                {selectedMember !== 'all' && (
-                                    <button
-                                        onClick={resetFilters}
-                                        style={{
-                                            padding: '10px 20px',
-                                            background: 'rgba(255,255,255,0.9)',
-                                            color: '#667eea',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            fontWeight: '600',
-                                            fontSize: '14px',
-                                            transition: 'all 0.3s ease',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = 'white';
-                                            e.currentTarget.style.transform = 'translateY(-2px)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
-                                            e.currentTarget.style.transform = 'translateY(0)';
-                                        }}
-                                    >
-                                        Reset Filter
-                                    </button>
-                                )}
+                                        {selectedMember !== 'all' && (
+                                            <button
+                                                onClick={resetFilters}
+                                                style={{
+                                                    padding: '10px 20px',
+                                                    background: 'rgba(255,255,255,0.9)',
+                                                    color: '#667eea',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '600',
+                                                    fontSize: '14px',
+                                                    transition: 'all 0.3s ease',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.background = 'white';
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
+                                                    e.currentTarget.style.transform = 'translateY(0)';
+                                                }}
+                                            >
+                                                Reset Filter
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        </div>
                         )}
-                
+
                     </div>
 
                     {/* View Mode Buttons */}
@@ -920,9 +966,85 @@ const ProjectKPICard = ({ project, avgTasksPerDay, isFilteredView = false }) => 
                 color: '#666'
             }}>
                 {!isFilteredView && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>👥</span>
-                        <span>{project.totalMembers} members</span>
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                        maxWidth: '180px'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '12px',
+                            color: '#495057',
+                            fontWeight: '500'
+                        }}>
+                            <span>👥</span>
+                            <span>Team Members</span>
+                        </div>
+
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '3px',
+                            fontSize: '11px',
+                            color: '#666'
+                        }}>
+                            {project.memberStats && project.memberStats.length > 0 ? (
+                                <>
+                                    {project.memberStats.slice(0, 3).map((member, index) => (
+                                        <div
+                                            key={member.id || index}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '2px 4px',
+                                                background: index % 2 === 0 ? '#f8f9fa' : 'transparent',
+                                                borderRadius: '3px'
+                                            }}
+                                            title={member.email}
+                                        >
+                                            <div style={{
+                                                width: '4px',
+                                                height: '4px',
+                                                borderRadius: '50%',
+                                                background: '#4ecdc4',
+                                                flexShrink: 0
+                                            }} />
+                                            <span style={{
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {member.name || member.email.split('@')[0]}
+                                            </span>
+                                        </div>
+                                    ))}
+
+                                    {project.memberStats.length > 3 && (
+                                        <div style={{
+                                            fontSize: '10px',
+                                            color: '#999',
+                                            marginLeft: '8px',
+                                            fontStyle: 'italic'
+                                        }}>
+                                            and {project.memberStats.length - 3} more
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div style={{
+                                    fontSize: '11px',
+                                    color: '#999',
+                                    fontStyle: 'italic',
+                                    paddingLeft: '10px'
+                                }}>
+                                    No members assigned
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1006,7 +1128,9 @@ const ProjectKPIList = ({ project, avgTasksPerDay, isFilteredView = false }) => 
                         {isFilteredView ? (
                             `⚡ ${avgTasksPerDay.toFixed(1)} tasks/day`
                         ) : (
-                            `👥 ${project.totalMembers} members • ⚡ ${avgTasksPerDay.toFixed(1)}/day`
+                            project.members && project.members.length > 0
+                                ? `👥 ${project.members.map(m => m.email.split('@')[0]).join(', ')}${project.members.length > 2 ? ` +${project.members.length - 2}` : ''} • ⚡ ${avgTasksPerDay.toFixed(1)}/day`
+                                : `👥 ${project.totalMembers} members • ⚡ ${avgTasksPerDay.toFixed(1)}/day`
                         )}
                     </div>
                 </div>
