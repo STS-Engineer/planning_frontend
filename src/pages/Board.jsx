@@ -779,7 +779,7 @@ const Board = () => {
                                           className="option-select"
                                         >
                                           {lists.map(list => (
-                                            <option key={list.id} value={list.id}>{list.icon} {list.title}</option>
+                                            <option key={list.id} value={list.id}>{list.title}</option>
                                           ))}
                                         </select>
                                       </div>
