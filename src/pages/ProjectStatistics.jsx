@@ -4,8 +4,10 @@ import {
     CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
 } from 'recharts';
 import ApiService from '../services/api';
+import { useAuth } from '../components/context/AuthContext';
 
 const ProjectStatistics = ({ selectedProject, projects = [] }) => {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [allProjectsStats, setAllProjectsStats] = useState(null);
     const [projectsKPI, setProjectsKPI] = useState([]);
@@ -122,119 +124,63 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                 setFilteredProjectsKPI(projectsKPI);
                 setShowMemberStats(false);
                 setSelectedMember('all');
+                setMemberStats(null);
                 return;
             }
 
-            // Get member details
-            const member = members.find(m => m.id == memberId || m.user_id == memberId);
-            if (!member) {
-                console.error('❌ Member not found:', memberId);
+            // Use the new API endpoint to get member statistics
+            const response = await ApiService.getMemberStatistics(memberId);
+            console.log('✅ Member statistics from API:', response);
+
+            if (!response || !response.member) {
+                console.error('❌ Invalid response from member statistics API');
+                setFilteredProjectsKPI(projectsKPI);
+                setShowMemberStats(false);
+                setSelectedMember('all');
                 return;
             }
 
-            console.log('👤 Found member:', member);
+            // Update filtered projects with member's projects
+            setFilteredProjectsKPI(response.projects || []);
 
-            // Get projects where this member is assigned
-            const memberProjects = [];
-            const memberTaskStats = [];
-
-            // Analyze each project for member's contributions
-            for (const project of projectsKPI) {
-                try {
-                    // Get tasks for this project
-                    const tasksResponse = await ApiService.getTasks(project.projectId);
-                    const tasks = Array.isArray(tasksResponse) ? tasksResponse : [];
-
-                    // Filter tasks assigned to this member
-                    const memberTasks = tasks.filter(task => {
-                        if (task.assignee_id == memberId) return true;
-                        if (task.assignee && task.assignee.id == memberId) return true;
-                        return false;
-                    });
-
-                    console.log(`📝 Project ${project.projectName}: ${memberTasks.length} tasks for member`);
-
-                    if (memberTasks.length > 0) {
-                        // Calculate member's stats for this project
-                        const totalTasks = memberTasks.length;
-                        const todoTasks = memberTasks.filter(t => t.status === 'todo').length;
-                        const inProgressTasks = memberTasks.filter(t => t.status === 'in_progress').length;
-                        const doneTasks = memberTasks.filter(t => t.status === 'done').length;
-                        const completionRate = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-
-                        // Create project view for this member
-                        const memberProjectView = {
-                            ...project,
-                            totalTasks,
-                            todoTasks,
-                            inProgressTasks,
-                            doneTasks,
-                            completionRate,
-                            // These metrics now represent only the member's tasks
-                            assignedTasks: totalTasks,
-                            unassignedTasks: 0
-                        };
-
-                        memberProjects.push(memberProjectView);
-
-                        // Add to member task stats
-                        memberTaskStats.push({
-                            projectId: project.projectId,
-                            projectName: project.projectName,
-                            tasks: memberTasks,
-                            totalTasks,
-                            completedTasks: doneTasks,
-                            completionRate
-                        });
-                    }
-                } catch (error) {
-                    console.error(`❌ Error analyzing project ${project.projectId} for member:`, error);
-                }
-            }
-
-            // Calculate overall member statistics
-            const totalMemberTasks = memberTaskStats.reduce((sum, stat) => sum + stat.totalTasks, 0);
-            const totalCompletedTasks = memberTaskStats.reduce((sum, stat) => sum + stat.completedTasks, 0);
-            const overallCompletionRate = totalMemberTasks > 0
-                ? Math.round((totalCompletedTasks / totalMemberTasks) * 100)
-                : 0;
-
-            // Calculate average tasks per day
-            const avgTasksPerDay = memberTaskStats.length > 0
-                ? Number((totalMemberTasks / 30).toFixed(1)) // Assuming 30 days period
-                : 0;
-
-            console.log('📊 Member statistics calculated:', {
-                totalProjects: memberProjects.length,
-                totalTasks: totalMemberTasks,
-                completedTasks: totalCompletedTasks,
-                overallCompletionRate,
-                avgTasksPerDay
-            });
-
-            // Update filtered projects
-            setFilteredProjectsKPI(memberProjects);
+            // Create project stats for breakdown
+            const projectStats = (response.projects || []).map(project => ({
+                projectId: project.projectId,
+                projectName: project.projectName,
+                totalTasks: project.totalTasks,
+                completedTasks: project.doneTasks,
+                completionRate: project.completionRate
+            }));
 
             // Set detailed member statistics
             setMemberStats({
-                member,
-                totalProjects: memberProjects.length,
-                totalTasks: totalMemberTasks,
-                completedTasks: totalCompletedTasks,
-                overallCompletionRate,
-                avgTasksPerDay,
-                projectStats: memberTaskStats,
-                productivity: getProductivityLevel(avgTasksPerDay)
+                member: response.member,
+                totalProjects: response.summary.totalProjects,
+                totalTasks: response.summary.totalTasks,
+                completedTasks: response.summary.completedTasks,
+                overallCompletionRate: response.summary.overallCompletionRate,
+                avgTasksPerDay: response.summary.avgTasksPerDay,
+                projectStats: projectStats,
+                productivity: response.summary.productivity
             });
 
             setShowMemberStats(true);
             setSelectedMember(memberId);
+
+            console.log('📊 Member statistics loaded:', {
+                totalProjects: response.summary.totalProjects,
+                totalTasks: response.summary.totalTasks,
+                completedTasks: response.summary.completedTasks,
+                overallCompletionRate: response.summary.overallCompletionRate,
+                avgTasksPerDay: response.summary.avgTasksPerDay
+            });
 
         } catch (error) {
             console.error('❌ Failed to load member statistics:', error);
             setFilteredProjectsKPI(projectsKPI);
             setShowMemberStats(false);
             setSelectedMember('all');
+            setMemberStats(null);
         } finally {
             setLoading(false);
         }
@@ -344,46 +290,49 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
 
     return (
         <div style={{
-            padding: '40px 20px',
-            maxWidth: '1600px',
-            margin: '0 auto',
+            padding: '30px',
+            width: '100%',
+            maxWidth: 'none',
+            margin: '0',
             background: '#f5f7fa',
             minHeight: '100vh'
         }}>
-            {/* Header */}
+            {/* Header - Full Width */}
             <div style={{
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 padding: '40px',
                 borderRadius: '20px',
                 color: 'white',
-                marginBottom: '40px',
-                boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)'
+                marginBottom: '30px',
+                boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)',
+                width: '100%'
             }}>
                 <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'flex-start',
                     flexWrap: 'wrap',
-                    gap: '20px'
+                    gap: '20px',
+                    maxWidth: '100%'
                 }}>
-                    <div style={{ flex: 1 }}>
-                        <h1 style={{ margin: '0 0 10px 0', fontSize: '36px', fontWeight: '700' }}>
+                    <div style={{ flex: 2, minWidth: '300px' }}>
+                        <h1 style={{ margin: '0 0 10px 0', fontSize: '32px', fontWeight: '700' }}>
                             📊 Projects KPI Dashboard
                         </h1>
-                        <p style={{ margin: 0, fontSize: '18px', opacity: 0.95 }}>
+                        <p style={{ margin: 0, fontSize: '16px', opacity: 0.95, marginBottom: '20px' }}>
                             Comprehensive statistics across all your projects
                         </p>
-
-                        {/* Member Filter */}
+                        {user.role==='ADMIN' && (
+                        <div>
+                                    {/* Member Filter */}
                         <div style={{
-                            marginTop: '20px',
                             background: 'rgba(255,255,255,0.2)',
                             padding: '15px',
                             borderRadius: '12px',
-                            maxWidth: '400px'
+                            maxWidth: '500px'
                         }}>
                             <div style={{
-                                fontSize: '16px',
+                                fontSize: '14px',
                                 marginBottom: '10px',
                                 fontWeight: '500'
                             }}>
@@ -400,8 +349,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                     onChange={(e) => handleMemberFilterChange(e.target.value)}
                                     style={{
                                         flex: 1,
-                                        minWidth: '200px',
-                                        padding: '12px',
+                                        minWidth: '250px',
+                                        padding: '10px 15px',
                                         borderRadius: '8px',
                                         border: 'none',
                                         background: 'white',
@@ -422,7 +371,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                     <button
                                         onClick={resetFilters}
                                         style={{
-                                            padding: '12px 20px',
+                                            padding: '10px 20px',
                                             background: 'rgba(255,255,255,0.9)',
                                             color: '#667eea',
                                             border: 'none',
@@ -430,7 +379,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             cursor: 'pointer',
                                             fontWeight: '600',
                                             fontSize: '14px',
-                                            transition: 'all 0.3s ease'
+                                            transition: 'all 0.3s ease',
+                                            whiteSpace: 'nowrap'
                                         }}
                                         onMouseEnter={(e) => {
                                             e.currentTarget.style.background = 'white';
@@ -446,15 +396,20 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                 )}
                             </div>
                         </div>
+                        </div>
+                        )}
+                
                     </div>
 
+                    {/* View Mode Buttons */}
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '10px',
                         background: 'rgba(255,255,255,0.2)',
                         padding: '15px',
-                        borderRadius: '12px'
+                        borderRadius: '12px',
+                        minWidth: '200px'
                     }}>
                         <div style={{ fontSize: '14px', marginBottom: '8px', opacity: 0.9 }}>
                             View Mode:
@@ -471,7 +426,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                     color: viewMode === 'grid' ? '#667eea' : 'white',
                                     fontWeight: '600',
                                     fontSize: '14px',
-                                    transition: 'all 0.3s ease'
+                                    transition: 'all 0.3s ease',
+                                    flex: 1
                                 }}>
                                 🔲 Grid
                             </button>
@@ -486,7 +442,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                     color: viewMode === 'list' ? '#667eea' : 'white',
                                     fontWeight: '600',
                                     fontSize: '14px',
-                                    transition: 'all 0.3s ease'
+                                    transition: 'all 0.3s ease',
+                                    flex: 1
                                 }}>
                                 📋 List
                             </button>
@@ -495,63 +452,100 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                 </div>
             </div>
 
-            {/* Show Member Statistics Card when a member is selected */}
-            {showMemberStats && memberStats && (
+            {/* Main Content Area - Full Width Grid */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+                gap: '25px',
+                marginBottom: '30px',
+                width: '100%'
+            }}>
+                {/* Summary Cards - Full Width */}
                 <div style={{
-                    background: 'linear-gradient(135deg, #4ecdc4 0%, #44a3a0 100%)',
-                    padding: '30px',
-                    borderRadius: '20px',
-                    marginBottom: '30px',
-                    color: 'white',
-                    boxShadow: '0 10px 30px rgba(78, 205, 196, 0.3)'
+                    gridColumn: '1 / -1',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '20px'
                 }}>
+                    <SummaryCard
+                        icon="📁"
+                        title="Total Projects"
+                        value={filteredProjectsKPI.length}
+                        color="#667eea"
+                        gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+                    />
+                    <SummaryCard
+                        icon="📝"
+                        title="Total Tasks"
+                        value={allProjectsStats?.totalTasks || 0}
+                        color="#4ecdc4"
+                        gradient="linear-gradient(135deg, #4ecdc4 0%, #44a3a0 100%)"
+                    />
+                    <SummaryCard
+                        icon="✅"
+                        title="Completed Tasks"
+                        value={allProjectsStats?.completedTasks || 0}
+                        color="#a8e6cf"
+                        gradient="linear-gradient(135deg, #a8e6cf 0%, #88d8b0 100%)"
+                    />
+                    <SummaryCard
+                        icon="📈"
+                        title="Overall Completion"
+                        value={`${allProjectsStats?.completionRate || 0}%`}
+                        color="#ffd93d"
+                        gradient="linear-gradient(135deg, #ffd93d 0%, #ffb703 100%)"
+                    />
+                </div>
+
+                {/* Member Statistics - Full Width when shown */}
+                {showMemberStats && memberStats && (
                     <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '25px',
-                        flexWrap: 'wrap',
-                        gap: '20px'
+                        gridColumn: '1 / -1',
+                        background: 'linear-gradient(135deg, #4ecdc4 0%, #44a3a0 100%)',
+                        padding: '25px',
+                        borderRadius: '20px',
+                        color: 'white',
+                        boxShadow: '0 10px 30px rgba(78, 205, 196, 0.3)'
                     }}>
-                        <div>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '20px',
+                            flexWrap: 'wrap',
+                            gap: '15px'
+                        }}>
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '15px',
-                                marginBottom: '10px'
+                                gap: '15px'
                             }}>
                                 <div style={{
-                                    width: '60px',
-                                    height: '60px',
+                                    width: '50px',
+                                    height: '50px',
                                     borderRadius: '50%',
                                     background: 'rgba(255,255,255,0.2)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: '24px'
+                                    fontSize: '20px'
                                 }}>
                                     👤
                                 </div>
                                 <div>
-                                    <h2 style={{ margin: '0 0 5px 0', fontSize: '28px', fontWeight: '700' }}>
+                                    <h2 style={{ margin: '0 0 5px 0', fontSize: '24px', fontWeight: '700' }}>
                                         {memberStats.member.email?.split('@')[0]?.replace(/\./g, ' ') || `Member ${memberStats.member.id}`}
                                     </h2>
-                                    <div style={{ fontSize: '16px', opacity: 0.9 }}>
+                                    <div style={{ fontSize: '14px', opacity: 0.9 }}>
                                         {memberStats.member.email}
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div style={{
-                            display: 'flex',
-                            gap: '15px',
-                            alignItems: 'center'
-                        }}>
                             <button
                                 onClick={resetFilters}
                                 style={{
-                                    padding: '12px 24px',
+                                    padding: '10px 20px',
                                     background: 'rgba(255,255,255,0.9)',
                                     color: '#4ecdc4',
                                     border: 'none',
@@ -573,348 +567,200 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                 ← Back to All Projects
                             </button>
                         </div>
-                    </div>
 
-                    {/* Member KPI Cards */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '20px',
-                        marginBottom: '25px'
-                    }}>
+                        {/* Member KPI Cards */}
                         <div style={{
-                            background: 'rgba(255,255,255,0.15)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            textAlign: 'center',
-                            backdropFilter: 'blur(10px)'
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                            gap: '15px',
+                            marginBottom: '25px'
                         }}>
-                            <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '5px' }}>
-                                {memberStats.totalProjects}
-                            </div>
-                            <div style={{ fontSize: '14px', opacity: 0.9 }}>Active Projects</div>
-                        </div>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.15)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            textAlign: 'center',
-                            backdropFilter: 'blur(10px)'
-                        }}>
-                            <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '5px' }}>
-                                {memberStats.totalTasks}
-                            </div>
-                            <div style={{ fontSize: '14px', opacity: 0.9 }}>Assigned Tasks</div>
-                        </div>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.15)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            textAlign: 'center',
-                            backdropFilter: 'blur(10px)'
-                        }}>
-                            <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '5px' }}>
-                                {memberStats.completedTasks}
-                            </div>
-                            <div style={{ fontSize: '14px', opacity: 0.9 }}>Completed Tasks</div>
-                        </div>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.15)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            textAlign: 'center',
-                            backdropFilter: 'blur(10px)'
-                        }}>
-                            <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '5px' }}>
-                                {memberStats.overallCompletionRate}%
-                            </div>
-                            <div style={{ fontSize: '14px', opacity: 0.9 }}>Completion Rate</div>
-                        </div>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.15)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            textAlign: 'center',
-                            backdropFilter: 'blur(10px)'
-                        }}>
-                            <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '5px' }}>
-                                {memberStats.avgTasksPerDay.toFixed(1)}
-                            </div>
-                            <div style={{ fontSize: '14px', opacity: 0.9 }}>Avg Tasks/Day</div>
-                        </div>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.15)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            textAlign: 'center',
-                            backdropFilter: 'blur(10px)'
-                        }}>
-                            <div style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '5px' }}>
-                                {memberStats.productivity}
-                            </div>
-                            <div style={{ fontSize: '14px', opacity: 0.9 }}>Productivity Level</div>
-                        </div>
-                    </div>
-
-                    {/* Member's Project Breakdown */}
-                    {memberStats.projectStats && memberStats.projectStats.length > 0 && (
-                        <div>
-                            <h3 style={{
-                                fontSize: '20px',
-                                margin: '0 0 20px 0',
-                                fontWeight: '600',
-                                opacity: 0.9
-                            }}>
-                                📋 Project-wise Task Breakdown
-                            </h3>
                             <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                                gap: '15px'
+                                background: 'rgba(255,255,255,0.15)',
+                                padding: '15px',
+                                borderRadius: '10px',
+                                textAlign: 'center',
+                                backdropFilter: 'blur(10px)'
                             }}>
-                                {memberStats.projectStats.map((projectStat, index) => (
-                                    <div key={index} style={{
-                                        background: 'rgba(255,255,255,0.1)',
-                                        padding: '15px',
-                                        borderRadius: '10px',
-                                        border: '1px solid rgba(255,255,255,0.2)'
-                                    }}>
-                                        <div style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            marginBottom: '10px'
-                                        }}>
-                                            <div style={{
-                                                fontWeight: '600',
-                                                fontSize: '16px'
-                                            }}>
-                                                {projectStat.projectName}
-                                            </div>
-                                            <div style={{
-                                                background: projectStat.completionRate >= 70 ? 'rgba(255,255,255,0.2)' :
-                                                    projectStat.completionRate >= 40 ? 'rgba(255,215,61,0.2)' :
-                                                        'rgba(255,107,107,0.2)',
-                                                color: 'white',
-                                                padding: '4px 12px',
-                                                borderRadius: '20px',
-                                                fontSize: '14px',
-                                                fontWeight: '600'
-                                            }}>
-                                                {projectStat.completionRate}%
-                                            </div>
-                                        </div>
-                                        <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '10px' }}>
-                                            {projectStat.totalTasks} tasks • {projectStat.completedTasks} completed
-                                        </div>
-                                        <div style={{
-                                            background: 'rgba(255,255,255,0.2)',
-                                            height: '8px',
-                                            borderRadius: '4px',
-                                            overflow: 'hidden'
-                                        }}>
-                                            <div style={{
-                                                background: 'white',
-                                                height: '100%',
-                                                width: `${Math.min(projectStat.completionRate, 100)}%`,
-                                                transition: 'width 1s ease-out'
-                                            }} />
-                                        </div>
-                                    </div>
-                                ))}
+                                <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>
+                                    {memberStats.totalProjects}
+                                </div>
+                                <div style={{ fontSize: '12px', opacity: 0.9 }}>Active Projects</div>
+                            </div>
+                            <div style={{
+                                background: 'rgba(255,255,255,0.15)',
+                                padding: '15px',
+                                borderRadius: '10px',
+                                textAlign: 'center',
+                                backdropFilter: 'blur(10px)'
+                            }}>
+                                <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>
+                                    {memberStats.totalTasks}
+                                </div>
+                                <div style={{ fontSize: '12px', opacity: 0.9 }}>Assigned Tasks</div>
+                            </div>
+                            <div style={{
+                                background: 'rgba(255,255,255,0.15)',
+                                padding: '15px',
+                                borderRadius: '10px',
+                                textAlign: 'center',
+                                backdropFilter: 'blur(10px)'
+                            }}>
+                                <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>
+                                    {memberStats.completedTasks}
+                                </div>
+                                <div style={{ fontSize: '12px', opacity: 0.9 }}>Completed Tasks</div>
+                            </div>
+                            <div style={{
+                                background: 'rgba(255,255,255,0.15)',
+                                padding: '15px',
+                                borderRadius: '10px',
+                                textAlign: 'center',
+                                backdropFilter: 'blur(10px)'
+                            }}>
+                                <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>
+                                    {memberStats.overallCompletionRate}%
+                                </div>
+                                <div style={{ fontSize: '12px', opacity: 0.9 }}>Completion Rate</div>
                             </div>
                         </div>
-                    )}
-                </div>
-            )}
-
-            {/* Global Summary Cards */}
-            {allProjectsStats && !showMemberStats && (
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                    gap: '20px',
-                    marginBottom: '40px'
-                }}>
-                    <SummaryCard
-                        icon="📁"
-                        title="Total Projects"
-                        value={filteredProjectsKPI.length}
-                        color="#667eea"
-                        gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-                    />
-                    <SummaryCard
-                        icon="📝"
-                        title="Total Tasks"
-                        value={allProjectsStats.totalTasks || 0}
-                        color="#4ecdc4"
-                        gradient="linear-gradient(135deg, #4ecdc4 0%, #44a3a0 100%)"
-                    />
-                    <SummaryCard
-                        icon="✅"
-                        title="Completed Tasks"
-                        value={allProjectsStats.completedTasks || 0}
-                        color="#a8e6cf"
-                        gradient="linear-gradient(135deg, #a8e6cf 0%, #88d8b0 100%)"
-                    />
-                    <SummaryCard
-                        icon="📈"
-                        title="Overall Completion"
-                        value={`${allProjectsStats.completionRate || 0}%`}
-                        color="#ffd93d"
-                        gradient="linear-gradient(135deg, #ffd93d 0%, #ffb703 100%)"
-                    />
-                </div>
-            )}
-
-            {/* Filter Info Banner */}
-            {selectedMember !== 'all' && showMemberStats && (
-                <div style={{
-                    background: 'linear-gradient(135deg, #ffd93d 0%, #ffb703 100%)',
-                    padding: '15px 25px',
-                    borderRadius: '12px',
-                    marginBottom: '25px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '15px',
-                    color: '#333',
-                    fontWeight: '500'
-                }}>
-                    <div style={{ fontSize: '24px' }}>👤</div>
-                    <div style={{ flex: 1 }}>
-                        <strong>Viewing tasks assigned to: </strong>
-                        {memberStats?.member?.email?.split('@')[0]?.replace(/\./g, ' ') || `Member ${memberStats?.member?.id}`}
-                        <div style={{ fontSize: '14px', opacity: 0.8, marginTop: '5px' }}>
-                            Showing {filteredProjectsKPI.length} project{filteredProjectsKPI.length !== 1 ? 's' : ''} • {memberStats?.totalTasks || 0} total tasks
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Projects KPI Section */}
-            <div style={{
-                background: 'white',
-                padding: '30px',
-                borderRadius: '20px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                marginBottom: '30px'
-            }}>
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '30px',
-                    flexWrap: 'wrap',
-                    gap: '20px'
-                }}>
-                    <h2 style={{
-                        margin: 0,
-                        fontSize: '28px',
-                        color: '#2c3e50',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                    }}>
-                        <span>🎯</span>
-                        {showMemberStats ? 'Assigned Projects Performance' : 'Project Performance KPIs'}
-                    </h2>
-
-                    <div style={{ fontSize: '16px', color: '#666' }}>
-                        {filteredProjectsKPI.length} project{filteredProjectsKPI.length !== 1 ? 's' : ''} shown
-                    </div>
-                </div>
-
-                {filteredProjectsKPI.length === 0 ? (
-                    <EmptyState
-                        icon={selectedMember !== 'all' ? "👤" : "📊"}
-                        title={selectedMember !== 'all' ? "No Projects Assigned" : "No Projects Yet"}
-                        message={selectedMember !== 'all' ?
-                            "This member doesn't have any tasks assigned across projects" :
-                            "Create your first project to see statistics"}
-                    />
-                ) : viewMode === 'grid' ? (
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
-                        gap: '25px'
-                    }}>
-                        {filteredProjectsKPI.map(project => {
-                            const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
-                            return (
-                                <ProjectKPICard
-                                    key={project.projectId}
-                                    project={project}
-                                    avgTasksPerDay={avgTasksPerDay}
-                                    isFilteredView={selectedMember !== 'all'}
-                                />
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        {filteredProjectsKPI.map(project => {
-                            const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
-                            return (
-                                <ProjectKPIList
-                                    key={project.projectId}
-                                    project={project}
-                                    avgTasksPerDay={avgTasksPerDay}
-                                    isFilteredView={selectedMember !== 'all'}
-                                />
-                            );
-                        })}
                     </div>
                 )}
-            </div>
 
-            {/* Comparison Chart */}
-            {filteredProjectsKPI.length > 0 && (
+                {/* Projects KPI Section */}
                 <div style={{
+                    gridColumn: '1 / -1',
                     background: 'white',
-                    padding: '30px',
+                    padding: '25px',
                     borderRadius: '20px',
                     boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
                 }}>
-                    <h2 style={{
-                        margin: '0 0 30px 0',
-                        fontSize: '28px',
-                        color: '#2c3e50',
+                    <div style={{
                         display: 'flex',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        gap: '12px'
+                        marginBottom: '25px',
+                        flexWrap: 'wrap',
+                        gap: '15px'
                     }}>
-                        <span>📊</span>
-                        {showMemberStats ? 'Assigned Tasks Distribution' : 'Projects Comparison'}
-                    </h2>
-                    <ResponsiveContainer width="100%" height={400}>
-                        <BarChart data={filteredProjectsKPI}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis
-                                dataKey="projectName"
-                                angle={-45}
-                                textAnchor="end"
-                                height={120}
-                                tick={{ fontSize: 12 }}
-                            />
-                            <YAxis />
-                            <Tooltip
-                                contentStyle={{
-                                    borderRadius: '12px',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                    border: 'none'
-                                }}
-                            />
-                            <Legend />
-                            <Bar dataKey="totalTasks" name="Total Tasks" fill="#667eea" radius={[8, 8, 0, 0]} />
-                            <Bar dataKey="doneTasks" name="Completed" fill="#4ecdc4" radius={[8, 8, 0, 0]} />
-                            <Bar dataKey="inProgressTasks" name="In Progress" fill="#ffd93d" radius={[8, 8, 0, 0]} />
-                            {showMemberStats && (
-                                <Bar dataKey="todoTasks" name="To Do" fill="#ff6b6b" radius={[8, 8, 0, 0]} />
-                            )}
-                        </BarChart>
-                    </ResponsiveContainer>
+                        <h2 style={{
+                            margin: 0,
+                            fontSize: '24px',
+                            color: '#2c3e50',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px'
+                        }}>
+                            <span>🎯</span>
+                            {showMemberStats ? 'Assigned Projects Performance' : 'Project Performance KPIs'}
+                        </h2>
+
+                        <div style={{ fontSize: '14px', color: '#666' }}>
+                            {filteredProjectsKPI.length} project{filteredProjectsKPI.length !== 1 ? 's' : ''} shown
+                        </div>
+                    </div>
+
+                    {filteredProjectsKPI.length === 0 ? (
+                        <EmptyState
+                            icon={selectedMember !== 'all' ? "👤" : "📊"}
+                            title={selectedMember !== 'all' ? "No Projects Assigned" : "No Projects Yet"}
+                            message={selectedMember !== 'all' ?
+                                "This member doesn't have any tasks assigned across projects" :
+                                "Create your first project to see statistics"}
+                        />
+                    ) : viewMode === 'grid' ? (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                            gap: '20px'
+                        }}>
+                            {filteredProjectsKPI.map(project => {
+                                const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
+                                return (
+                                    <ProjectKPICard
+                                        key={project.projectId}
+                                        project={project}
+                                        avgTasksPerDay={avgTasksPerDay}
+                                        isFilteredView={selectedMember !== 'all'}
+                                    />
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '15px',
+                            maxWidth: '100%'
+                        }}>
+                            {filteredProjectsKPI.map(project => {
+                                const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
+                                return (
+                                    <ProjectKPIList
+                                        key={project.projectId}
+                                        project={project}
+                                        avgTasksPerDay={avgTasksPerDay}
+                                        isFilteredView={selectedMember !== 'all'}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
-            )}
+
+                {/* Comparison Chart */}
+                {filteredProjectsKPI.length > 0 && (
+                    <div style={{
+                        gridColumn: '1 / -1',
+                        background: 'white',
+                        padding: '25px',
+                        borderRadius: '20px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                        width: '100%'
+                    }}>
+                        <h2 style={{
+                            margin: '0 0 25px 0',
+                            fontSize: '24px',
+                            color: '#2c3e50',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px'
+                        }}>
+                            <span>📊</span>
+                            {showMemberStats ? 'Assigned Tasks Distribution' : 'Projects Comparison'}
+                        </h2>
+                        <div style={{ width: '100%', height: '400px' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={filteredProjectsKPI}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis
+                                        dataKey="projectName"
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={100}
+                                        tick={{ fontSize: 11 }}
+                                    />
+                                    <YAxis />
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: '12px',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                            border: 'none'
+                                        }}
+                                    />
+                                    <Legend />
+                                    <Bar dataKey="totalTasks" name="Total Tasks" fill="#667eea" radius={[8, 8, 0, 0]} />
+                                    <Bar dataKey="doneTasks" name="Completed" fill="#4ecdc4" radius={[8, 8, 0, 0]} />
+                                    <Bar dataKey="inProgressTasks" name="In Progress" fill="#ffd93d" radius={[8, 8, 0, 0]} />
+                                    {showMemberStats && (
+                                        <Bar dataKey="todoTasks" name="To Do" fill="#ff6b6b" radius={[8, 8, 0, 0]} />
+                                    )}
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
@@ -957,23 +803,7 @@ const ProjectKPICard = ({ project, avgTasksPerDay, isFilteredView = false }) => 
                 e.currentTarget.style.boxShadow = 'none';
                 e.currentTarget.style.borderColor = isFilteredView ? '#4ecdc4' : '#e9ecef';
             }}>
-            {/* Filter indicator */}
-            {isFilteredView && (
-                <div style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    background: '#4ecdc4',
-                    color: 'white',
-                    padding: '4px 10px',
-                    borderRadius: '12px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    zIndex: 2
-                }}>
-                    👤 Filtered
-                </div>
-            )}
+
 
             {/* Decorative corner */}
             <div style={{
