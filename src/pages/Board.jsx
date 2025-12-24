@@ -1,5 +1,5 @@
 // src/components/Dashboard/Board.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../components/context/AuthContext';
 import ApiService from '../services/api';
 import List from './List';
@@ -46,6 +46,9 @@ const Board = () => {
     endDate: '',
     priority: 'medium'
   });
+  // Add filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
     if (user) {
@@ -98,6 +101,56 @@ const Board = () => {
       console.error('Failed to load project members', error);
     }
   };
+
+
+  // Add filter function
+  const filteredProjects = useMemo(() => {
+    let filtered = projects;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(project =>
+        project['project-name'].toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Filter by status (you can implement this based on your project status logic)
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(project => {
+        // Add your status filtering logic here
+        // Example: if you have a project.status field
+        // return project.status === filterStatus;
+        return true; // Placeholder - implement based on your needs
+      });
+    }
+
+    // If a project is selected, show it first
+    if (selectedProject) {
+      const selected = filtered.find(p => p.project_id === selectedProject.project_id);
+      const others = filtered.filter(p => p.project_id !== selectedProject.project_id);
+      return selected ? [selected, ...others] : filtered;
+    }
+
+    return filtered;
+  }, [projects, searchQuery, filterStatus, selectedProject]);
+
+  // Rest of your existing functions remain the same...
+  // loadProjectTasks, loadMembers, getInitialBoardStructure, etc.
+
+  // Add function to clear filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilterStatus('all');
+  };
+
+  // Add function to get project stats for filter display
+  const getFilterStats = () => {
+    const total = projects.length;
+    const filtered = filteredProjects.length;
+    return { total, filtered };
+  };
+
+  const filterStats = getFilterStats();
 
   const getInitialBoardStructure = () => [
     {
@@ -596,6 +649,7 @@ const Board = () => {
       <div className="board">
         {activeView === 'board' && (
           <>
+      
             <div className="projects-section">
               <div className="section-header">
                 <h2 className="section-title">
@@ -617,8 +671,62 @@ const Board = () => {
                 )}
               </div>
 
+                    {/* ADD FILTER BAR SECTION HERE */}
+            <div className="filter-bar">
+              <div className="filter-header">
+                <h3 className="filter-title">
+                  <span className="filter-icon">🔍</span>
+                  Filter Projects
+                </h3>
+                <div className="filter-stats">
+                  <span className="filter-stat">
+                    Showing {filterStats.filtered} of {filterStats.total} projects
+                  </span>
+                  {(searchQuery || filterStatus !== 'all') && (
+                    <button className="clear-filters-btn" onClick={clearFilters}>
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="filter-controls">
+                <div className="search-box">
+                  <span className="search-icon">🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search projects by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="search-input"
+                  />
+                  {searchQuery && (
+                    <button
+                      className="clear-search"
+                      onClick={() => setSearchQuery('')}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                <div className="filter-selects">
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">All Projects</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
               <div className="projects-grid">
-                {projects.length > 0 ? (
+                {filteredProjects.length > 0 ? (
                   <>
                     {selectedProject ? (
                       <>
@@ -767,7 +875,7 @@ const Board = () => {
                         </div>
 
                         {/* OTHER PROJECTS - Display remaining projects below */}
-                        {projects
+                        {filteredProjects
                           .filter(p => p.project_id !== selectedProject.project_id)
                           .map(project => (
                             <div key={project.project_id} className="project-wrapper">
@@ -837,7 +945,7 @@ const Board = () => {
                       </>
                     ) : (
                       /* ALL PROJECTS - No selection */
-                      projects.map(project => (
+                      filteredProjects.map(project => (
                         <div key={project.project_id} className="project-wrapper">
                           <div
                             className="project-card"
