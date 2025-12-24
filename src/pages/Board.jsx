@@ -673,16 +673,6 @@ const Board = () => {
 
                     {/* ADD FILTER BAR SECTION HERE */}
             <div className="filter-bar">
-              <div className="filter-header">
-                <div className="filter-stats">
-                  {(searchQuery || filterStatus !== 'all') && (
-                    <button className="clear-filters-btn" onClick={clearFilters}>
-                      Clear Filters
-                    </button>
-                  )}
-                </div>
-              </div>
-
               <div className="filter-controls">
                 <div className="search-box">
                   <span className="search-icon">🔍</span>
