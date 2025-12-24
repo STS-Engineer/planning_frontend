@@ -109,6 +109,13 @@ class ApiService {
     });
   }
 
+
+
+  // Get statistics for a specific member
+  async getMemberStatistics(memberId) {
+    return this.request(`/statistics/member/${memberId}`);
+  }
+
   // Task methods
   async createTask(taskData) {
     return this.request('/tasks', {
