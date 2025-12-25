@@ -265,11 +265,12 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
 
         if (selectedProject?.project_id) {
             console.log('🚀 Loading stats for project:', selectedProject['project-name']);
-            // loadProjectStatistics(selectedProject.project_id);
+               loadAllProjectsStatistics();
         } else {
             console.log('⚠️ No valid project selected, loading all projects stats');
             loadAllProjectsStatistics();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedProject]);
 
     // Handle member filter change
@@ -293,19 +294,55 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             const response = await ApiService.getProjectStatistics(projectId);
             console.log('📊 Project statistics response:', response);
 
-            // Extract member emails from memberStats
-            const memberEmails = response.memberStats
-                ? response.memberStats.map(member => member.email).filter(email => email)
-                : [];
+            if (response) {
+                // Create a single project KPI array (same format as getAllProjectsStatistics)
+                const singleProjectKPI = [{
+                    projectId: projectId,
+                    projectName: response.projectName || selectedProject?.['project-name'] || 'Project',
+                    totalTasks: response.totalTasks || 0,
+                    todoTasks: response.todoTasks || 0,
+                    inProgressTasks: response.inProgressTasks || 0,
+                    doneTasks: response.doneTasks || 0,
+                    completionRate: response.completionRate || 0,
+                    projectDuration: response.projectDuration || 0,
+                    daysRemaining: response.daysRemaining || 0,
+                    daysElapsed: response.daysElapsed || 0,
+                    progressPercentage: response.progressPercentage || 0,
+                    startDate: response.startDate || '',
+                    endDate: response.endDate || '',
+                    memberStats: response.memberStats || [],
+                    totalMembers: response.totalMembers || 0,
+                    assignedTasks: response.assignedTasks || 0,
+                    unassignedTasks: response.unassignedTasks || 0
+                }];
 
-            setStats({
-                ...response,
-                memberEmails: memberEmails
-            });
+                // Create summary stats for the single project
+                const summary = {
+                    totalTasks: response.totalTasks || 0,
+                    completedTasks: response.doneTasks || 0,
+                    completionRate: response.completionRate || 0,
+                    totalProjects: 1
+                };
 
+                // Set the same state variables as getAllProjectsStatistics
+                setAllProjectsStats(summary);
+                setProjectsKPI(singleProjectKPI);
+                setFilteredProjectsKPI(singleProjectKPI);
+                setSelectedMember('all');
+                setShowMemberStats(false);
+            }
         } catch (error) {
             console.error('❌ Failed to load project statistics:', error);
             setError(error.message);
+            // Set empty state on error
+            setAllProjectsStats({
+                totalTasks: 0,
+                completedTasks: 0,
+                completionRate: 0,
+                totalProjects: 0
+            });
+            setProjectsKPI([]);
+            setFilteredProjectsKPI([]);
         } finally {
             setLoading(false);
         }
@@ -320,13 +357,492 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
     };
 
     // Show individual project statistics when a project is selected
+    // Replace the problematic section with this:
+
+    // Show individual project statistics when a project is selected
+    // Show individual project statistics when a project is selected
     if (selectedProject?.project_id) {
-        if (loading) {
-            return <LoadingSpinner message="Loading project statistics..." />;
+        // Show loading spinner while fetching
+        if (loading && !stats.projectId) {
+            return <LoadingSpinner message={`Loading statistics for ${selectedProject['project-name']}...`} />;
         }
 
-        // ... (keep existing project-specific view) ...
-        return <div>Project Specific View (Not implemented in this example)</div>;
+        // Return actual project statistics view
+        return (
+            <div style={{
+                padding: '30px',
+                width: '100%',
+                maxWidth: 'none',
+                margin: '0',
+                background: '#f5f7fa',
+                minHeight: '100vh'
+            }}>
+                {/* Header - Full Width */}
+                <div style={{
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    padding: '40px',
+                    borderRadius: '20px',
+                    color: 'white',
+                    marginBottom: '30px',
+                    boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)',
+                    width: '100%'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        flexWrap: 'wrap',
+                        gap: '20px',
+                        maxWidth: '100%'
+                    }}>
+                        <div style={{ flex: 2, minWidth: '300px' }}>
+                            <h1 style={{ margin: '0 0 10px 0', fontSize: '32px', fontWeight: '700' }}>
+                                📊 Projects KPI Dashboard
+                            </h1>
+                            <p style={{ margin: 0, fontSize: '16px', opacity: 0.95, marginBottom: '20px' }}>
+                                Comprehensive statistics across all your projects
+                            </p>
+                            {user.role === 'ADMIN' && (
+                                <div>
+                                    {/* Member Filter */}
+                                    <div style={{
+                                        background: 'rgba(255,255,255,0.2)',
+                                        padding: '15px',
+                                        borderRadius: '12px',
+                                        maxWidth: '500px'
+                                    }}>
+                                        <div style={{
+                                            fontSize: '14px',
+                                            marginBottom: '10px',
+                                            fontWeight: '500'
+                                        }}>
+                                            👥 Filter by Team Member:
+                                        </div>
+                                        <div style={{
+                                            display: 'flex',
+                                            gap: '10px',
+                                            alignItems: 'center',
+                                            flexWrap: 'wrap'
+                                        }}>
+                                            <select
+                                                value={selectedMember}
+                                                onChange={(e) => handleMemberFilterChange(e.target.value)}
+                                                style={{
+                                                    flex: 1,
+                                                    minWidth: '250px',
+                                                    padding: '10px 15px',
+                                                    borderRadius: '8px',
+                                                    border: 'none',
+                                                    background: 'white',
+                                                    color: '#333',
+                                                    fontSize: '14px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <option value="all">👥 All Members (All Projects)</option>
+                                                {members.map(member => (
+                                                    <option key={member.id} value={member.id}>
+                                                        👤 {member.email?.split('@')[0]?.replace(/\./g, ' ') || `Member ${member.id}`}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                            {selectedMember !== 'all' && (
+                                                <button
+                                                    onClick={resetFilters}
+                                                    style={{
+                                                        padding: '10px 20px',
+                                                        background: 'rgba(255,255,255,0.9)',
+                                                        color: '#667eea',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: '600',
+                                                        fontSize: '14px',
+                                                        transition: 'all 0.3s ease',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.background = 'white';
+                                                        e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
+                                                        e.currentTarget.style.transform = 'translateY(0)';
+                                                    }}
+                                                >
+                                                    Reset Filter
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+
+                        {/* View Mode Buttons */}
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                            background: 'rgba(255,255,255,0.2)',
+                            padding: '15px',
+                            borderRadius: '12px',
+                            minWidth: '200px'
+                        }}>
+                            <div style={{ fontSize: '14px', marginBottom: '8px', opacity: 0.9 }}>
+                                View Mode:
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        background: viewMode === 'grid' ? 'white' : 'transparent',
+                                        color: viewMode === 'grid' ? '#667eea' : 'white',
+                                        fontWeight: '600',
+                                        fontSize: '14px',
+                                        transition: 'all 0.3s ease',
+                                        flex: 1
+                                    }}>
+                                    🔲 Grid
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        background: viewMode === 'list' ? 'white' : 'transparent',
+                                        color: viewMode === 'list' ? '#667eea' : 'white',
+                                        fontWeight: '600',
+                                        fontSize: '14px',
+                                        transition: 'all 0.3s ease',
+                                        flex: 1
+                                    }}>
+                                    📋 List
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Main Content Area - Full Width Grid */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+                    gap: '25px',
+                    marginBottom: '30px',
+                    width: '100%'
+                }}>
+                    {/* Summary Cards - Full Width */}
+                    <div style={{
+                        gridColumn: '1 / -1',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                        gap: '20px'
+                    }}>
+                        <SummaryCard
+                            icon="📁"
+                            title="Total Projects"
+                            value={filteredProjectsKPI.length}
+                            color="#667eea"
+                            gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+                        />
+                        <SummaryCard
+                            icon="📝"
+                            title="Total Tasks"
+                            value={allProjectsStats?.totalTasks || 0}
+                            color="#4ecdc4"
+                            gradient="linear-gradient(135deg, #4ecdc4 0%, #44a3a0 100%)"
+                        />
+                        <SummaryCard
+                            icon="✅"
+                            title="Completed Tasks"
+                            value={allProjectsStats?.completedTasks || 0}
+                            color="#a8e6cf"
+                            gradient="linear-gradient(135deg, #a8e6cf 0%, #88d8b0 100%)"
+                        />
+                        <SummaryCard
+                            icon="📈"
+                            title="Overall Completion"
+                            value={`${allProjectsStats?.completionRate || 0}%`}
+                            color="#ffd93d"
+                            gradient="linear-gradient(135deg, #ffd93d 0%, #ffb703 100%)"
+                        />
+                    </div>
+
+                    {/* Member Statistics - Full Width when shown */}
+                    {showMemberStats && memberStats && (
+                        <div style={{
+                            gridColumn: '1 / -1',
+                            background: 'linear-gradient(135deg, #4ecdc4 0%, #44a3a0 100%)',
+                            padding: '25px',
+                            borderRadius: '20px',
+                            color: 'white',
+                            boxShadow: '0 10px 30px rgba(78, 205, 196, 0.3)'
+                        }}>
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '20px',
+                                flexWrap: 'wrap',
+                                gap: '15px'
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '15px'
+                                }}>
+                                    <div style={{
+                                        width: '50px',
+                                        height: '50px',
+                                        borderRadius: '50%',
+                                        background: 'rgba(255,255,255,0.2)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '20px'
+                                    }}>
+                                        👤
+                                    </div>
+                                    <div>
+                                        <h2 style={{ margin: '0 0 5px 0', fontSize: '24px', fontWeight: '700' }}>
+                                            {memberStats.member.email?.split('@')[0]?.replace(/\./g, ' ') || `Member ${memberStats.member.id}`}
+                                        </h2>
+                                        <div style={{ fontSize: '14px', opacity: 0.9 }}>
+                                            {memberStats.member.email}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={resetFilters}
+                                    style={{
+                                        padding: '10px 20px',
+                                        background: 'rgba(255,255,255,0.9)',
+                                        color: '#4ecdc4',
+                                        border: 'none',
+                                        borderRadius: '10px',
+                                        cursor: 'pointer',
+                                        fontWeight: '600',
+                                        fontSize: '14px',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = 'white';
+                                        e.currentTarget.style.transform = 'translateY(-2px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255,255,255,0.9)';
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                >
+                                    Back to All Projects
+                                </button>
+                            </div>
+
+                            {/* Member KPI Cards */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                                gap: '15px',
+                                marginBottom: '25px'
+                            }}>
+                                <div style={{
+                                    background: 'rgba(255,255,255,0.15)',
+                                    padding: '15px',
+                                    borderRadius: '10px',
+                                    textAlign: 'center',
+                                    backdropFilter: 'blur(10px)'
+                                }}>
+                                    <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>
+                                        {memberStats.totalProjects}
+                                    </div>
+                                    <div style={{ fontSize: '12px', opacity: 0.9 }}>Active Projects</div>
+                                </div>
+                                <div style={{
+                                    background: 'rgba(255,255,255,0.15)',
+                                    padding: '15px',
+                                    borderRadius: '10px',
+                                    textAlign: 'center',
+                                    backdropFilter: 'blur(10px)'
+                                }}>
+                                    <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>
+                                        {memberStats.totalTasks}
+                                    </div>
+                                    <div style={{ fontSize: '12px', opacity: 0.9 }}>Assigned Tasks</div>
+                                </div>
+                                <div style={{
+                                    background: 'rgba(255,255,255,0.15)',
+                                    padding: '15px',
+                                    borderRadius: '10px',
+                                    textAlign: 'center',
+                                    backdropFilter: 'blur(10px)'
+                                }}>
+                                    <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>
+                                        {memberStats.completedTasks}
+                                    </div>
+                                    <div style={{ fontSize: '12px', opacity: 0.9 }}>Completed Tasks</div>
+                                </div>
+                                <div style={{
+                                    background: 'rgba(255,255,255,0.15)',
+                                    padding: '15px',
+                                    borderRadius: '10px',
+                                    textAlign: 'center',
+                                    backdropFilter: 'blur(10px)'
+                                }}>
+                                    <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '5px' }}>
+                                        {memberStats.overallCompletionRate}%
+                                    </div>
+                                    <div style={{ fontSize: '12px', opacity: 0.9 }}>Completion Rate</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Projects KPI Section */}
+                    <div style={{
+                        gridColumn: '1 / -1',
+                        background: 'white',
+                        padding: '25px',
+                        borderRadius: '20px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '25px',
+                            flexWrap: 'wrap',
+                            gap: '15px'
+                        }}>
+                            <h2 style={{
+                                margin: 0,
+                                fontSize: '24px',
+                                color: '#2c3e50',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <span>🎯</span>
+                                {showMemberStats ? 'Assigned Projects Performance' : 'Project Performance KPIs'}
+                            </h2>
+
+                            <div style={{ fontSize: '14px', color: '#666' }}>
+                                {filteredProjectsKPI.length} project{filteredProjectsKPI.length !== 1 ? 's' : ''} shown
+                            </div>
+                        </div>
+
+                        {filteredProjectsKPI.length === 0 ? (
+                            <EmptyState
+                                icon={selectedMember !== 'all' ? "👤" : "📊"}
+                                title={selectedMember !== 'all' ? "No Projects Assigned" : "No Projects Yet"}
+                                message={selectedMember !== 'all' ?
+                                    "This member doesn't have any tasks assigned across projects" :
+                                    "Create your first project to see statistics"}
+                            />
+                        ) : viewMode === 'grid' ? (
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                                gap: '20px'
+                            }}>
+                                {filteredProjectsKPI.map(project => {
+                                    const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
+                                    return (
+                                        <ProjectKPICard
+                                            key={project.projectId}
+                                            project={project}
+                                            avgTasksPerDay={avgTasksPerDay}
+                                            isFilteredView={selectedMember !== 'all'}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '15px',
+                                maxWidth: '100%'
+                            }}>
+                                {filteredProjectsKPI.map(project => {
+                                    const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
+                                    return (
+                                        <ProjectKPIList
+                                            key={project.projectId}
+                                            project={project}
+                                            avgTasksPerDay={avgTasksPerDay}
+                                            isFilteredView={selectedMember !== 'all'}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Comparison Chart */}
+                    {filteredProjectsKPI.length > 0 && (
+                        <div style={{
+                            gridColumn: '1 / -1',
+                            background: 'white',
+                            padding: '25px',
+                            borderRadius: '20px',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                            width: '100%'
+                        }}>
+                            <h2 style={{
+                                margin: '0 0 25px 0',
+                                fontSize: '24px',
+                                color: '#2c3e50',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <span>📊</span>
+                                {showMemberStats ? 'Assigned Tasks Distribution' : 'Projects Comparison'}
+                            </h2>
+                            <div style={{ width: '100%', height: '400px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={filteredProjectsKPI}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis
+                                            dataKey="projectName"
+                                            angle={-45}
+                                            textAnchor="end"
+                                            height={100}
+                                            tick={{ fontSize: 11 }}
+                                        />
+                                        <YAxis />
+                                        <Tooltip
+                                            contentStyle={{
+                                                borderRadius: '12px',
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                                border: 'none'
+                                            }}
+                                        />
+                                        <Legend />
+                                        <Bar dataKey="totalTasks" name="Total Tasks" fill="#667eea" radius={[8, 8, 0, 0]} />
+                                        <Bar dataKey="doneTasks" name="Completed" fill="#4ecdc4" radius={[8, 8, 0, 0]} />
+                                        <Bar dataKey="inProgressTasks" name="In Progress" fill="#ffd93d" radius={[8, 8, 0, 0]} />
+                                        {showMemberStats && (
+                                            <Bar dataKey="todoTasks" name="To Do" fill="#ff6b6b" radius={[8, 8, 0, 0]} />
+                                        )}
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
     }
 
     // Show all projects overview when no project is selected
@@ -610,7 +1126,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                     e.currentTarget.style.transform = 'translateY(0)';
                                 }}
                             >
-                                ← Back to All Projects
+                                Back to All Projects
                             </button>
                         </div>
 
