@@ -1,4 +1,3 @@
-// src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import ApiService from '../../services/api';
 
@@ -16,55 +15,51 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  /* =========================
+     RESTORE SESSION
+  ========================== */
   useEffect(() => {
-    checkAuth();
+    const storedUser = localStorage.getItem('user');
+    const accessToken = localStorage.getItem('accessToken');
+
+    if (storedUser && accessToken) {
+      setUser(JSON.parse(storedUser));
+    }
+
+    setLoading(false);
   }, []);
 
-  const checkAuth = async () => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (token && userData) {
-      // Verify the token is not a mock token
-      if (token !== 'mock-jwt-token') {
-        ApiService.setToken(token);
-        setUser(JSON.parse(userData));
-      } else {
-        // Clear invalid mock token
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-    }
-    setLoading(false);
-  };
-
+  /* =========================
+     LOGIN
+  ========================== */
   const login = async (email, password) => {
     try {
       const response = await ApiService.login(email, password);
-      
-      // Make sure we have a real token, not a mock one
-      if (response.token && response.token !== 'mock-jwt-token') {
-        const userData = {
-          id: response.user_id,
-          email: response.email,
-          username: response.email.split('@')[0],
-          role: response.role
-        };
-        
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('token', response.token);
-        ApiService.setToken(response.token);
-        setUser(userData);
-        
-        return { success: true, data: response };
-      } else {
-        return { success: false, error: 'Invalid token received' };
-      }
+
+      // Backend now returns accessToken + refreshToken
+      const userData = {
+        id: response.user_id,
+        email: response.email,
+        username: response.email.split('@')[0],
+        role: response.role
+      };
+
+      // ApiService already stores tokens internally
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+
+      return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: error.message || 'Login failed'
+      };
     }
   };
 
+  /* =========================
+     REGISTER
+  ========================== */
   const register = async (email, password, role = 'user') => {
     try {
       const response = await ApiService.register(email, password, role);
@@ -74,10 +69,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /* =========================
+     LOGOUT
+  ========================== */
   const logout = () => {
-    ApiService.logout();
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    ApiService.logout(); // clears tokens + redirects
     setUser(null);
   };
 
@@ -91,7 +87,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
