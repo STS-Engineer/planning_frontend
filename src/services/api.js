@@ -2,51 +2,132 @@
 const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter';
 
 class ApiService {
-  constructor() {
-    this.token = localStorage.getItem('token');
+   constructor() {
+    this.accessToken = localStorage.getItem('accessToken');
+    this.refreshToken = localStorage.getItem('refreshToken');
+    this.isRefreshing = false;
+    this.failedQueue = [];
   }
 
-  setToken(token) {
-    this.token = token;
-    localStorage.setItem('token', token);
+ /* =========================
+     TOKEN MANAGEMENT
+  ========================== */
+
+  setTokens(accessToken, refreshToken) {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+
+  clearTokens() {
+    this.accessToken = null;
+    this.refreshToken = null;
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
   }
 
   getAuthHeaders() {
     return {
-      'Authorization': `Bearer ${this.token}`,
+      'Authorization': this.accessToken
+        ? `Bearer ${this.accessToken}`
+        : '',
       'Content-Type': 'application/json',
     };
   }
 
-  async request(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const config = {
-      headers: this.getAuthHeaders(),
-      ...options,
-    };
+  /* =========================
+     REFRESH TOKEN
+  ========================== */
+
+  async refreshAccessToken() {
+    if (this.isRefreshing) {
+      return new Promise((resolve, reject) => {
+        this.failedQueue.push({ resolve, reject });
+      });
+    }
+
+    this.isRefreshing = true;
 
     try {
-      const response = await fetch(url, config);
-      const data = await response.json();
+      const response = await fetch(`${API_BASE_URL}/refresh-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          refreshToken: this.refreshToken,
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error(data.message || 'Request failed');
+        throw new Error('Refresh token expired');
       }
 
-      return data;
+      const data = await response.json();
+      this.accessToken = data.accessToken;
+      localStorage.setItem('accessToken', data.accessToken);
+
+      this.failedQueue.forEach(p => p.resolve(data.accessToken));
+      this.failedQueue = [];
+
+      return data.accessToken;
     } catch (error) {
-      console.error('API Request failed:', error);
+      this.failedQueue.forEach(p => p.reject(error));
+      this.failedQueue = [];
+      this.logout();
       throw error;
+    } finally {
+      this.isRefreshing = false;
     }
+  }
+
+
+async request(endpoint, options = {}, retry = true) {
+    const url = `${API_BASE_URL}${endpoint}`;
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...this.getAuthHeaders(),
+        ...(options.headers || {}),
+      },
+    });
+
+    if (response.status === 401 && retry) {
+      try {
+        const newAccessToken = await this.refreshAccessToken();
+
+        return this.request(
+          endpoint,
+          {
+            ...options,
+            headers: {
+              ...options.headers,
+              Authorization: `Bearer ${newAccessToken}`,
+            },
+          },
+          false
+        );
+      } catch {
+        throw new Error('Session expired');
+      }
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Request failed');
+    }
+
+    return data;
   }
 
   // Auth methods
   async login(email, password) {
     const response = await fetch(`${API_BASE_URL}/login`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
@@ -56,21 +137,19 @@ class ApiService {
       throw new Error(data.message || 'Login failed');
     }
 
-    this.setToken(data.token);
+    // ✅ Store both tokens
+    this.setTokens(data.accessToken, data.refreshToken);
     return data;
   }
 
   async register(email, password, role = 'user') {
     const response = await fetch(`${API_BASE_URL}/register`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, role }),
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       throw new Error(data.message || 'Registration failed');
     }
@@ -262,9 +341,8 @@ class ApiService {
   }
 
   logout() {
-    this.token = null;
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    this.clearTokens();
+    window.location.href = '/signin';
   }
 
   // In your ApiService class, update the getProjectsByStats method:
