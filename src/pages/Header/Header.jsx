@@ -31,7 +31,7 @@ const Header = () => {
         {/* Logo */}
         <div className="logo">
           <div className="logo-icon">📊</div>
-          <h1>IA AND SOFTWARE TEAM PLANNIG </h1>
+          <h1>AI AND SOFTWARE TEAM PLANNIG</h1>
         </div>
 
         {/* Workspace Selector */}
