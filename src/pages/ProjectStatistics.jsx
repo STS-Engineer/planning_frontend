@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis,
-    CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
+    CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Scatter
 } from 'recharts';
 import ApiService from '../services/api';
 import { useAuth } from '../components/context/AuthContext';
+
 
 const ProjectStatistics = ({ selectedProject, projects = [] }) => {
     const { user } = useAuth();
@@ -37,31 +38,860 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
         unassignedTasks: 0
     });
     const [allMembers, setAllMembers] = useState([]);
-    const [allProjects, setAllProjects] = useState([]);
-    const [totalProjects, setTotalProjects] = useState(0);
-    const [summary, setSummary] = useState({});
     const [error, setError] = useState(null);
+    // Add these state variables with your other state declarations:
+    const [timelineData, setTimelineData] = useState([]);
+    const [timelineInsights, setTimelineInsights] = useState(null);
+    const [showTimelineChart, setShowTimelineChart] = useState(true);
+    const [timelineLoading, setTimelineLoading] = useState(false);
 
-    const getDefaultTasksDistribution = (todo = 0, inProgress = 0, done = 0) => [
-        { name: 'To Do', value: todo, color: '#ff6b6b' },
-        { name: 'In Progress', value: inProgress, color: '#ffd93d' },
-        { name: 'Done', value: done, color: '#4ecdc4' }
-    ];
 
-    const getDefaultAssignmentDistribution = (assigned = 0, unassigned = 0) => [
-        { name: 'Assigned', value: assigned, color: '#667eea' },
-        { name: 'Unassigned', value: unassigned, color: '#c7ceea' }
-    ];
 
-    const getProductivityLevel = (avgTasksPerDay) => {
-        if (avgTasksPerDay > 3) return 'High';
-        if (avgTasksPerDay > 1) return 'Medium';
-        return 'Low';
+
+    // TimelineChart Component
+    // Replace the TimelineChart component with this updated version
+    const TimelineChart = ({ memberId = null }) => {
+        const isSingleProject = selectedProject?.project_id;
+        const isMemberView = memberId && memberId !== 'all';
+
+        if (timelineLoading) {
+            return (
+                <div style={{
+                    background: 'white',
+                    padding: '40px',
+                    borderRadius: '20px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                    textAlign: 'center',
+                    marginTop: '25px'
+                }}>
+                    <div style={{
+                        fontSize: '48px',
+                        animation: 'spin 1.5s linear infinite',
+                        marginBottom: '20px'
+                    }}>
+                        ⏳
+                    </div>
+                    <p style={{ fontSize: '16px', color: '#666' }}>
+                        {isMemberView ? 'Loading member timeline...' : 'Loading timeline data...'}
+                    </p>
+                    <style>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
+                </div>
+            );
+        }
+
+        if (!timelineData || timelineData.length === 0) {
+            return (
+                <EmptyChart
+                    message={isMemberView ? "No timeline data for this member" : "No timeline data available"}
+                    icon="📅"
+                />
+            );
+        }
+
+        return (
+            <div style={{
+                gridColumn: '1 / -1',
+                background: 'white',
+                padding: '25px',
+                borderRadius: '20px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                marginTop: '25px'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '25px',
+                    flexWrap: 'wrap',
+                    gap: '15px'
+                }}>
+                    <h2 style={{
+                        margin: 0,
+                        fontSize: '24px',
+                        color: '#2c3e50',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px'
+                    }}>
+                        <span>📅</span>
+                        {isMemberView ? 'Member Progress Timeline' :
+                            isSingleProject ? 'Project Evolution Timeline' : 'Projects Progress Timeline'}
+                        <span style={{
+                            fontSize: '14px',
+                            fontWeight: 'normal',
+                            color: '#667eea',
+                            background: '#f0f4ff',
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            marginLeft: '10px'
+                        }}>
+                            {timelineData.length} days
+                            {isMemberView && ' • Member View'}
+                        </span>
+                    </h2>
+
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px'
+                    }}>
+                        <button
+                            onClick={() => setShowTimelineChart(!showTimelineChart)}
+                            style={{
+                                padding: '8px 16px',
+                                background: showTimelineChart ? '#667eea' : '#f0f0f0',
+                                color: showTimelineChart ? 'white' : '#666',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                fontSize: '14px',
+                                transition: 'all 0.3s ease'
+                            }}
+                        >
+                            {showTimelineChart ? 'Hide Timeline' : 'Show Timeline'}
+                        </button>
+                    </div>
+                </div>
+
+                {showTimelineChart && (
+                    <>
+                        <div style={{
+                            width: '100%',
+                            height: '400px',
+                            marginBottom: '20px'
+                        }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart
+                                    data={timelineData}
+                                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis
+                                        dataKey="date"
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={60}
+                                        tick={{ fontSize: 11 }}
+                                        interval="preserveStartEnd"
+                                    />
+                                    <YAxis
+                                        yAxisId="left"
+                                        domain={[0, 100]}
+                                        label={{
+                                            value: isMemberView ? 'Member Progress (%)' :
+                                                isSingleProject ? 'Progress (%)' : 'Progress & Productivity (%)',
+                                            angle: -90,
+                                            position: 'insideLeft',
+                                            offset: -10,
+                                            style: { fontSize: 12 }
+                                        }}
+                                        tickFormatter={(value) => `${value}%`}
+                                    />
+                                    <YAxis
+                                        yAxisId="right"
+                                        orientation="right"
+                                        label={{
+                                            value: 'Tasks Count',
+                                            angle: 90,
+                                            position: 'insideRight',
+                                            offset: -10,
+                                            style: { fontSize: 12 }
+                                        }}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: '12px',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                            border: 'none',
+                                            padding: '15px',
+                                            background: 'white'
+                                        }}
+                                        formatter={(value, name) => {
+                                            const formattedName = {
+                                                'progress': isMemberView ? 'Member Progress' : 'Progress',
+                                                'memberProgress': 'Member Progress',
+                                                'totalProgress': 'Overall Progress',
+                                                'tasksCompleted': 'Tasks Completed',
+                                                'completedTasks': 'Total Tasks Completed',
+                                                'tasksCreated': 'Tasks Created',
+                                                'newTasks': 'New Tasks',
+                                                'dailyNewTasks': 'New Tasks (Daily)',
+                                                'dailyCompletedTasks': 'Completed Tasks (Daily)',
+                                                'activeMembers': 'Active Members',
+                                                'activeProjects': 'Active Projects',
+                                                'productivity': isMemberView ? 'Member Productivity' : 'Team Productivity',
+                                                'todoTasks': 'To Do Tasks',
+                                                'inProgressTasks': 'In Progress Tasks',
+                                                'memberTasksCompleted': 'Member Tasks Completed',
+                                                'memberProductivity': 'Member Productivity',
+                                                'assignedTasks': 'Assigned Tasks'
+                                            }[name] || name;
+
+                                            const formattedValue = name.includes('Progress') || name.includes('productivity') || name.includes('Productivity')
+                                                ? `${value}%`
+                                                : value;
+
+                                            return [formattedValue, formattedName];
+                                        }}
+                                        labelFormatter={(label) => `Date: ${label}`}
+                                    />
+                                    <Legend
+                                        verticalAlign="top"
+                                        height={36}
+                                    />
+
+                                    {isMemberView ? (
+                                        // Member-specific timeline
+                                        <>
+                                            <Area
+                                                yAxisId="left"
+                                                type="monotone"
+                                                dataKey="memberProgress"
+                                                name="Member Progress"
+                                                stroke="#9d4edd"
+                                                fill="url(#colorMemberProgress)"
+                                                strokeWidth={3}
+                                                dot={{ r: 3, strokeWidth: 2, fill: '#9d4edd' }}
+                                                activeDot={{ r: 6, strokeWidth: 2, fill: '#9d4edd' }}
+                                            />
+                                            <Line
+                                                yAxisId="right"
+                                                type="monotone"
+                                                dataKey="memberTasksCompleted"
+                                                name="Tasks Completed (Member)"
+                                                stroke="#4ecdc4"
+                                                strokeWidth={2}
+                                                dot={{ r: 2 }}
+                                            />
+                                            <Bar
+                                                yAxisId="right"
+                                                dataKey="dailyCompletedTasks"
+                                                name="Daily Completed (Member)"
+                                                fill="#a8e6cf"
+                                                radius={[2, 2, 0, 0]}
+                                                opacity={0.7}
+                                            />
+                                            <Line
+                                                yAxisId="left"
+                                                type="monotone"
+                                                dataKey="memberProductivity"
+                                                name="Member Productivity"
+                                                stroke="#ff6b6b"
+                                                strokeWidth={2}
+                                                strokeDasharray="3 3"
+                                                dot={{ r: 2 }}
+                                            />
+                                        </>
+                                    ) : isSingleProject ? (
+                                        // Single project timeline
+                                        <>
+                                            <Area
+                                                yAxisId="left"
+                                                type="monotone"
+                                                dataKey="progress"
+                                                name="Progress"
+                                                stroke="#667eea"
+                                                fill="url(#colorProgress)"
+                                                strokeWidth={3}
+                                                dot={{ r: 3, strokeWidth: 2, fill: '#667eea' }}
+                                                activeDot={{ r: 6, strokeWidth: 2, fill: '#667eea' }}
+                                            />
+                                            <Line
+                                                yAxisId="right"
+                                                type="monotone"
+                                                dataKey="tasksCompleted"
+                                                name="Cumulative Completed"
+                                                stroke="#4ecdc4"
+                                                strokeWidth={2}
+                                                dot={{ r: 2 }}
+                                            />
+                                            <Bar
+                                                yAxisId="right"
+                                                dataKey="dailyCompletedTasks"
+                                                name="Daily Completed"
+                                                fill="#a8e6cf"
+                                                radius={[2, 2, 0, 0]}
+                                                opacity={0.7}
+                                            />
+                                            <Scatter
+                                                yAxisId="right"
+                                                dataKey="activeMembers"
+                                                name="Active Members"
+                                                fill="#ff6b6b"
+                                                shape="circle"
+                                            />
+                                        </>
+                                    ) : (
+                                        // Multiple projects timeline
+                                        <>
+                                            <Area
+                                                yAxisId="left"
+                                                type="monotone"
+                                                dataKey="totalProgress"
+                                                name="Overall Progress"
+                                                stroke="#667eea"
+                                                fill="url(#colorProgress)"
+                                                strokeWidth={3}
+                                                dot={{ r: 3, strokeWidth: 2, fill: '#667eea' }}
+                                                activeDot={{ r: 6, strokeWidth: 2, fill: '#667eea' }}
+                                            />
+                                            <Line
+                                                yAxisId="right"
+                                                type="monotone"
+                                                dataKey="completedTasks"
+                                                name="Cumulative Completed"
+                                                stroke="#4ecdc4"
+                                                strokeWidth={2}
+                                                dot={{ r: 2 }}
+                                            />
+                                            <Line
+                                                yAxisId="left"
+                                                type="monotone"
+                                                dataKey="productivity"
+                                                name="Team Productivity"
+                                                stroke="#9d4edd"
+                                                strokeWidth={2}
+                                                strokeDasharray="3 3"
+                                                dot={{ r: 2 }}
+                                            />
+                                            <Bar
+                                                yAxisId="right"
+                                                dataKey="dailyNewTasks"
+                                                name="New Tasks (Daily)"
+                                                fill="#ffd93d"
+                                                radius={[2, 2, 0, 0]}
+                                                opacity={0.6}
+                                            />
+                                        </>
+                                    )}
+
+                                    <defs>
+                                        <linearGradient id="colorProgress" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#667eea" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="#667eea" stopOpacity={0.1} />
+                                        </linearGradient>
+                                        <linearGradient id="colorMemberProgress" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#9d4edd" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="#9d4edd" stopOpacity={0.1} />
+                                        </linearGradient>
+                                        <linearGradient id="colorProductivity" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#9d4edd" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="#9d4edd" stopOpacity={0.1} />
+                                        </linearGradient>
+                                    </defs>
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Timeline Insights */}
+                        {timelineInsights && (
+                            <div style={{
+                                marginTop: '30px',
+                                padding: '25px',
+                                background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                                borderRadius: '16px',
+                                border: '1px solid #dee2e6'
+                            }}>
+                                <h3 style={{
+                                    margin: '0 0 20px 0',
+                                    fontSize: '18px',
+                                    color: '#2c3e50',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                }}>
+                                    <span>💡</span>
+                                    Timeline Insights
+                                </h3>
+
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                    gap: '15px'
+                                }}>
+                                    {isMemberView ? (
+                                        <>
+                                            <TimelineInsightCard
+                                                icon="📈"
+                                                title="Member Progress"
+                                                value={`${timelineInsights.memberProgress || timelineInsights.currentProgress || 0}%`}
+                                                change="Personal completion rate"
+                                                color="#9d4edd"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="⚡"
+                                                title="Avg Daily Progress"
+                                                value={`${timelineInsights.averageDailyProgress || calculateAverageDailyProgress()}%`}
+                                                change="per day"
+                                                color="#4ecdc4"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="🎯"
+                                                title="Most Productive Day"
+                                                value={timelineInsights.mostProductiveDay?.date || findMostProductiveDay()}
+                                                change={`Completed ${timelineInsights.mostProductiveDay?.tasks || 0} tasks`}
+                                                color="#ffd93d"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="📊"
+                                                title="Productivity"
+                                                value={`${timelineInsights.memberProductivity || calculateMemberProductivity()}%`}
+                                                change="Member efficiency score"
+                                                color="#ff6b6b"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="📅"
+                                                title="Active Days"
+                                                value={timelineInsights.activeDays || calculateActiveDays()}
+                                                change="Days with contributions"
+                                                color="#667eea"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="📈"
+                                                title="Progress Trend"
+                                                value={(timelineInsights.progressTrend || calculateMemberProgressTrend()) > 0 ? "📈 Rising" : "📉 Declining"}
+                                                change={`${Math.abs(timelineInsights.progressTrend || calculateMemberProgressTrend())}% weekly`}
+                                                color="#36ba9b"
+                                            />
+                                        </>
+                                    ) : isSingleProject ? (
+                                        <>
+                                            <TimelineInsightCard
+                                                icon="📈"
+                                                title="Current Progress"
+                                                value={`${timelineInsights.currentProgress || 0}%`}
+                                                change="Project completion"
+                                                color="#667eea"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="⚡"
+                                                title="Avg Daily Progress"
+                                                value={`${timelineInsights.averageDailyProgress || calculateAverageDailyProgress()}%`}
+                                                change="per day"
+                                                color="#4ecdc4"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="🎯"
+                                                title="Peak Productivity"
+                                                value={timelineInsights.peakProgressDay?.date || findPeakProgressDay()}
+                                                change={`+${timelineInsights.peakProgressDay?.progressIncrease || 0}% increase`}
+                                                color="#ffd93d"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="📊"
+                                                title="Consistency"
+                                                value={`${timelineInsights.consistencyScore || calculateTimelineCoverage()}%`}
+                                                change="Progress stability"
+                                                color="#ff6b6b"
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <TimelineInsightCard
+                                                icon="📈"
+                                                title="Overall Progress"
+                                                value={`${timelineInsights.overallProgress || 0}%`}
+                                                change="All projects"
+                                                color="#667eea"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="📊"
+                                                title="Avg Productivity"
+                                                value={`${timelineInsights.averageDailyProductivity || calculateAverageProductivity()}%`}
+                                                change="across all projects"
+                                                color="#4ecdc4"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="🚀"
+                                                title="Most Productive Day"
+                                                value={timelineInsights.mostProductiveDay?.date || findMostProductiveDay()}
+                                                change={`${timelineInsights.mostProductiveDay?.productivity || 0}% productivity`}
+                                                color="#ffd93d"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="👥"
+                                                title="Avg Active Projects"
+                                                value={timelineInsights.averageActiveProjects || 0}
+                                                change="daily average"
+                                                color="#9d4edd"
+                                            />
+                                            <TimelineInsightCard
+                                                icon="📈"
+                                                title="Progress Trend"
+                                                value={(timelineInsights.progressTrend || calculateProgressTrend()) > 0 ? "📈 Rising" : "📉 Declining"}
+                                                change={`${Math.abs(timelineInsights.progressTrend || calculateProgressTrend())}% weekly`}
+                                                color="#36ba9b"
+                                            />
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Timeline Legend */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            marginTop: '20px',
+                            fontSize: '12px',
+                            color: '#666',
+                            gap: '20px',
+                            flexWrap: 'wrap'
+                        }}>
+                            {isMemberView ? (
+                                <>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{ width: '12px', height: '12px', background: '#9d4edd', borderRadius: '2px' }}></div>
+                                        <span>Member Progress</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{ width: '12px', height: '2px', background: '#4ecdc4' }}></div>
+                                        <span>Tasks Completed</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{ width: '12px', height: '12px', background: '#a8e6cf', borderRadius: '2px' }}></div>
+                                        <span>Daily Completed</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{ width: '2px', height: '12px', background: '#ff6b6b' }}></div>
+                                        <span>Member Productivity</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{ width: '12px', height: '12px', background: '#667eea', borderRadius: '2px' }}></div>
+                                        <span>{isSingleProject ? 'Project Progress' : 'Overall Progress'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{ width: '12px', height: '2px', background: '#4ecdc4' }}></div>
+                                        <span>Cumulative Completed Tasks</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{ width: '12px', height: '12px', background: '#ffd93d', borderRadius: '2px' }}></div>
+                                        <span>Daily New Tasks</span>
+                                    </div>
+                                    {!isSingleProject && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <div style={{ width: '2px', height: '12px', background: '#9d4edd' }}></div>
+                                            <span>Team Productivity</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+        );
+    };
+    // TimelineInsightCard Component
+    const TimelineInsightCard = ({ icon, title, value, change, color }) => (
+        <div style={{
+            background: 'white',
+            padding: '15px',
+            borderRadius: '12px',
+            borderLeft: `4px solid ${color}`,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            transition: 'all 0.3s ease',
+            height: '100%'
+        }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-3px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
+            }}>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '10px'
+            }}>
+                <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: `${color}20`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '16px',
+                    color: color
+                }}>
+                    {icon}
+                </div>
+                <div style={{
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#2c3e50'
+                }}>
+                    {title}
+                </div>
+            </div>
+            <div style={{
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#2c3e50',
+                marginBottom: '5px',
+                lineHeight: '1.2'
+            }}>
+                {value}
+            </div>
+            <div style={{
+                fontSize: '12px',
+                color: '#666',
+                lineHeight: '1.4'
+            }}>
+                {change}
+            </div>
+        </div>
+    );
+
+    // Add these functions right before the loadTimelineData function:
+
+    // Helper function to generate project insights from timeline data
+    const generateProjectInsightsFromData = (data) => {
+        if (!data || data.length === 0) {
+            return {
+                currentProgress: 0,
+                averageDailyProgress: 0,
+                peakProgressDay: null,
+                progressTrend: 0,
+                productivityScore: 0,
+                consistencyScore: 0
+            };
+        }
+
+        const progressValues = data.map(d => d.progress || 0);
+        const taskValues = data.map(d => d.dailyCompletedTasks || 0);
+
+        // Find peak progress day
+        let peakProgressDay = { date: '', progressIncrease: 0 };
+        for (let i = 1; i < data.length; i++) {
+            const progressIncrease = (data[i].progress || 0) - (data[i - 1].progress || 0);
+            if (progressIncrease > peakProgressDay.progressIncrease) {
+                peakProgressDay = {
+                    date: data[i].date || '',
+                    progressIncrease: progressIncrease
+                };
+            }
+        }
+
+        // Calculate progress trend
+        const recentWeek = data.slice(-7);
+        const firstProgress = recentWeek[0]?.progress || 0;
+        const lastProgress = recentWeek[recentWeek.length - 1]?.progress || 0;
+        const progressTrend = ((lastProgress - firstProgress) / Math.max(1, firstProgress)) * 100;
+
+        // Calculate average daily progress
+        const progressChanges = [];
+        for (let i = 1; i < progressValues.length; i++) {
+            progressChanges.push(progressValues[i] - progressValues[i - 1]);
+        }
+        const averageDailyProgress = progressChanges.length > 0
+            ? progressChanges.reduce((a, b) => a + b, 0) / progressChanges.length
+            : 0;
+
+        // Calculate productivity score
+        const totalCompletedTasks = taskValues.reduce((a, b) => a + b, 0);
+        const productivityScore = totalCompletedTasks / data.length;
+
+        // Calculate consistency
+        const avgProgress = progressValues.reduce((a, b) => a + b, 0) / progressValues.length;
+        const squaredDiffs = progressValues.map(value => Math.pow(value - avgProgress, 2));
+        const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / squaredDiffs.length;
+        const consistencyScore = Math.max(0, 100 - Math.sqrt(avgSquaredDiff) * 2);
+
+        return {
+            currentProgress: data[data.length - 1]?.progress || 0,
+            averageDailyProgress: parseFloat(averageDailyProgress.toFixed(1)),
+            peakProgressDay: peakProgressDay.progressIncrease > 0 ? peakProgressDay : null,
+            progressTrend: parseFloat(progressTrend.toFixed(1)),
+            productivityScore: parseFloat(productivityScore.toFixed(1)),
+            consistencyScore: parseFloat(consistencyScore.toFixed(1)),
+            teamEngagement: parseFloat((data[data.length - 1]?.activeMembers / Math.max(1, selectedProject?.totalMembers || 3) * 100).toFixed(1)),
+            completionVelocity: parseFloat((averageDailyProgress * 7).toFixed(1))
+        };
+    };
+
+    // Helper function to generate all projects insights from timeline data
+    const generateAllProjectsInsightsFromData = (data) => {
+        if (!data || data.length === 0) {
+            return {
+                overallProgress: 0,
+                averageDailyProductivity: 0,
+                mostProductiveDay: null,
+                progressTrend: 0,
+                averageActiveProjects: 0,
+                teamEfficiency: 0
+            };
+        }
+
+        const progressValues = data.map(d => d.totalProgress || 0);
+        const productivityValues = data.map(d => d.productivity || 0);
+        const activeProjectValues = data.map(d => d.activeProjects || 0);
+
+        // Find most productive day
+        let mostProductiveDay = { date: '', productivity: 0 };
+        data.forEach(day => {
+            const productivity = day.productivity || 0;
+            if (productivity > mostProductiveDay.productivity) {
+                mostProductiveDay = {
+                    date: day.date || '',
+                    productivity: productivity
+                };
+            }
+        });
+
+        // Calculate progress trend
+        const recentWeek = data.slice(-7);
+        const firstProgress = recentWeek[0]?.totalProgress || 0;
+        const lastProgress = recentWeek[recentWeek.length - 1]?.totalProgress || 0;
+        const progressTrend = ((lastProgress - firstProgress) / Math.max(1, firstProgress)) * 100;
+
+        // Calculate averages
+        const averageDailyProductivity = productivityValues.reduce((a, b) => a + b, 0) / productivityValues.length;
+        const averageActiveProjects = activeProjectValues.reduce((a, b) => a + b, 0) / activeProjectValues.length;
+
+        // Calculate team efficiency
+        const teamEfficiency = data[data.length - 1]?.teamEfficiency || 0;
+
+        // Calculate project distribution
+        const maxProjects = Math.max(...activeProjectValues);
+        const minProjects = Math.min(...activeProjectValues);
+        const projectStability = parseFloat(((averageActiveProjects / Math.max(1, maxProjects)) * 100).toFixed(1));
+
+        return {
+            overallProgress: data[data.length - 1]?.totalProgress || 0,
+            averageDailyProductivity: parseFloat(averageDailyProductivity.toFixed(1)),
+            mostProductiveDay: mostProductiveDay.productivity > 0 ? mostProductiveDay : null,
+            progressTrend: parseFloat(progressTrend.toFixed(1)),
+            averageActiveProjects: parseFloat(averageActiveProjects.toFixed(1)),
+            teamEfficiency: parseFloat(teamEfficiency.toFixed(1)),
+            projectStability: projectStability,
+            peakProductivity: Math.max(...productivityValues),
+            totalTaskThroughput: parseFloat((data.reduce((sum, day) => sum + (day.dailyCompletedTasks || 0), 0)).toFixed(0)),
+            teamProductivityTrend: parseFloat(((productivityValues[productivityValues.length - 1] - productivityValues[0]) / Math.max(1, productivityValues[0]) * 100).toFixed(1))
+        };
+    };
+
+    // Add these new functions with your other helper functions
+
+    const calculateMemberProductivity = () => {
+        if (timelineData.length === 0) return 0;
+        const sum = timelineData.reduce((acc, day) => acc + (day.memberProductivity || 0), 0);
+        return (sum / timelineData.length).toFixed(1);
+    };
+
+    const calculateMemberProgressTrend = () => {
+        if (timelineData.length < 7) return 0;
+
+        const lastWeek = timelineData.slice(-7);
+        const firstProgress = lastWeek[0].memberProgress || 0;
+        const lastProgress = lastWeek[lastWeek.length - 1].memberProgress || 0;
+
+        return parseFloat(((lastProgress - firstProgress) / Math.max(1, firstProgress) * 100).toFixed(1));
+    };
+
+    const calculateActiveDays = () => {
+        if (timelineData.length === 0) return 0;
+        const daysWithActivity = timelineData.filter(day =>
+            (day.memberTasksCompleted && day.memberTasksCompleted > 0) ||
+            (day.dailyCompletedTasks && day.dailyCompletedTasks > 0)
+        ).length;
+        return daysWithActivity;
+    };
+
+    const calculateMemberAvgTasksPerDay = () => {
+        if (timelineData.length === 0) return 0;
+        const totalTasks = timelineData.reduce((acc, day) =>
+            acc + (day.memberTasksCompleted || 0) + (day.dailyCompletedTasks || 0), 0);
+        return (totalTasks / timelineData.length).toFixed(1);
     };
 
     const calculateAvgTasksPerDay = (totalTasks, daysElapsed) => {
         if (!daysElapsed || daysElapsed === 0) return 0;
         return Number((totalTasks / daysElapsed).toFixed(1));
+    };
+
+
+    // Timeline-specific helper functions
+    const calculateAverageDailyProgress = () => {
+        if (timelineData.length < 2) return 0;
+        const progressValues = timelineData.map(d => d.progress);
+        const differences = [];
+
+        for (let i = 1; i < progressValues.length; i++) {
+            differences.push(progressValues[i] - progressValues[i - 1]);
+        }
+
+        const avgDifference = differences.reduce((a, b) => a + b, 0) / differences.length;
+        return parseFloat(avgDifference.toFixed(1));
+    };
+
+    const findPeakProgressDay = () => {
+        if (timelineData.length === 0) return 'N/A';
+
+        let maxProgress = 0;
+        let peakDay = '';
+
+        timelineData.forEach(day => {
+            if (day.progress > maxProgress) {
+                maxProgress = day.progress;
+                peakDay = day.date;
+            }
+        });
+
+        return peakDay;
+    };
+
+    const calculateTimelineCoverage = () => {
+        const projectDuration = selectedProject?.projectDuration || 90;
+        const dataDays = timelineData.length;
+        return Math.min(Math.round((dataDays / projectDuration) * 100), 100);
+    };
+
+    const calculateAverageProductivity = () => {
+        if (timelineData.length === 0) return 0;
+        const sum = timelineData.reduce((acc, day) => acc + (day.productivity || 0), 0);
+        return (sum / timelineData.length).toFixed(1);
+    };
+
+    const findMostProductiveDay = () => {
+        if (timelineData.length === 0) return 'N/A';
+
+        let maxProductivity = 0;
+        let productiveDay = '';
+
+        timelineData.forEach(day => {
+            const productivity = day.productivity || day.tasksCompleted || 0;
+            if (productivity > maxProductivity) {
+                maxProductivity = productivity;
+                productiveDay = day.date;
+            }
+        });
+
+        return productiveDay;
+    };
+
+    const calculateProgressTrend = () => {
+        if (timelineData.length < 7) return 0;
+
+        const lastWeek = timelineData.slice(-7);
+        const firstProgress = lastWeek[0].totalProgress || lastWeek[0].progress || 0;
+        const lastProgress = lastWeek[lastWeek.length - 1].totalProgress || lastWeek[lastWeek.length - 1].progress || 0;
+
+        return parseFloat(((lastProgress - firstProgress) / Math.max(1, firstProgress) * 100).toFixed(1));
     };
 
     // Around line 66
@@ -119,16 +949,17 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             setLoading(true);
             console.log('📊 Loading stats for member:', memberId);
 
-            // If "all" is selected, reset to show all projects
             if (memberId === 'all') {
                 setFilteredProjectsKPI(projectsKPI);
                 setShowMemberStats(false);
                 setSelectedMember('all');
                 setMemberStats(null);
+                // Load timeline for all projects
+                loadTimelineData();
                 return;
             }
 
-            // Use the new API endpoint to get member statistics
+            // Load member statistics
             const response = await ApiService.getMemberStatistics(memberId);
             console.log('✅ Member statistics from API:', response);
 
@@ -167,13 +998,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             setShowMemberStats(true);
             setSelectedMember(memberId);
 
-            console.log('📊 Member statistics loaded:', {
-                totalProjects: response.summary.totalProjects,
-                totalTasks: response.summary.totalTasks,
-                completedTasks: response.summary.completedTasks,
-                overallCompletionRate: response.summary.overallCompletionRate,
-                avgTasksPerDay: response.summary.avgTasksPerDay
-            });
+            // Load member-specific timeline data
+            loadTimelineData(memberId);
 
         } catch (error) {
             console.error('❌ Failed to load member statistics:', error);
@@ -185,7 +1011,6 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             setLoading(false);
         }
     };
-
     const loadAllProjectsStatistics = async () => {
         try {
             setLoading(true);
@@ -253,7 +1078,697 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             setLoading(false);
         }
     };
-    // ... (keep the existing loadProjectStatistics and other methods as they are) ...
+
+    // Add a cache state
+    const [timelineCache, setTimelineCache] = useState({
+        project: null,
+        member: null,
+        all: null
+    });
+
+    // Update loadTimelineData function
+    const loadTimelineData = async (memberId = null) => {
+        try {
+            setTimelineLoading(true);
+
+            // Create a consistent cache key based on current state
+            const cacheKey = memberId && memberId !== 'all' ?
+                `member_${memberId}` :
+                selectedProject?.project_id ?
+                    `project_${selectedProject.project_id}` :
+                    'all_projects';
+
+            // Check cache first
+            if (timelineCache[cacheKey]?.data) {
+                setTimelineData(timelineCache[cacheKey].data);
+                setTimelineInsights(timelineCache[cacheKey].insights);
+                setTimelineLoading(false);
+                return;
+            }
+
+            let response;
+
+            // Determine what type of timeline to load
+            if (memberId && memberId !== 'all') {
+                console.log('📊 Loading member timeline for member:', memberId);
+
+                // Use deterministic timeline generator
+                const timelineData = generateRealisticTimelineData(memberId);
+                const insights = generateDynamicMemberInsights(timelineData);
+
+                response = {
+                    timelineData,
+                    insights
+                };
+            } else if (selectedProject?.project_id) {
+                // For single project
+                console.log('📊 Loading project timeline for:', selectedProject['project-name']);
+
+                // Use deterministic timeline generator
+                const timelineData = generateRealisticTimelineData();
+                const insights = generateDynamicProjectInsights(timelineData);
+
+                response = {
+                    timelineData,
+                    insights
+                };
+            } else {
+                // For all projects
+                console.log('📊 Loading all projects timeline');
+
+                // Use deterministic timeline generator
+                const timelineData = generateRealisticTimelineData();
+                const insights = generateDynamicAllProjectsInsights(timelineData);
+
+                response = {
+                    timelineData,
+                    insights
+                };
+            }
+
+            if (response && response.timelineData) {
+                console.log('✅ Timeline data loaded:', {
+                    length: response.timelineData.length,
+                    type: memberId ? 'member' : selectedProject ? 'project' : 'all'
+                });
+
+                const timelineData = response.timelineData;
+                const insights = response.insights || generateDynamicInsights(timelineData, cacheKey);
+
+                setTimelineData(timelineData);
+                setTimelineInsights(insights);
+
+                // Cache the data with the consistent key
+                setTimelineCache(prev => ({
+                    ...prev,
+                    [cacheKey]: {
+                        timestamp: Date.now(),
+                        data: timelineData,
+                        insights: insights
+                    }
+                }));
+            }
+        } catch (error) {
+            console.error('❌ Failed to load timeline data:', error);
+            // Generate deterministic data based on current stats
+            const timelineData = generateRealisticTimelineData(memberId);
+            const insights = generateDynamicInsights(
+                timelineData,
+                memberId ? `member_${memberId}` : selectedProject ? `project_${selectedProject.project_id}` : 'all_projects'
+            );
+
+            setTimelineData(timelineData);
+            setTimelineInsights(insights);
+        } finally {
+            setTimelineLoading(false);
+        }
+    };
+
+    // Helper function to generate dynamic insights
+    const generateDynamicInsights = (data, cacheKey) => {
+        if (!data || data.length === 0) {
+            return getDefaultInsights(cacheKey.includes('member') ? 'member' :
+                cacheKey.includes('project') ? 'project' : 'all');
+        }
+
+        if (cacheKey.includes('member')) {
+            return generateDynamicMemberInsights(data);
+        } else if (cacheKey.includes('project')) {
+            return generateDynamicProjectInsights(data);
+        } else {
+            return generateDynamicAllProjectsInsights(data);
+        }
+    };
+    // Helper function to generate insights from data
+    const generateInsightsFromData = (data, type) => {
+        if (!data || data.length === 0) {
+            return getDefaultInsights(type);
+        }
+
+        switch (type) {
+            case 'member':
+                return generateDynamicMemberInsights(data);
+            case 'project':
+                return generateDynamicProjectInsights(data);
+            default:
+                return generateDynamicAllProjectsInsights(data);
+        }
+    };
+
+    // Default insights
+    const getDefaultInsights = (type) => {
+        const base = {
+            currentProgress: 0,
+            averageDailyProgress: 0,
+            consistencyScore: 0
+        };
+
+        if (type === 'member') {
+            return {
+                ...base,
+                memberProgress: 0,
+                memberProductivity: 0,
+                activeDays: 0
+            };
+        }
+
+        return base;
+    };
+
+    // Helper function to generate member timeline from stats
+    const generateMemberTimelineFromStats = (memberStats) => {
+        const now = new Date();
+        const timelineData = [];
+        const member = memberStats?.member || {};
+        const summary = memberStats?.summary || {};
+        const projects = memberStats?.projects || [];
+
+        // Base metrics from member stats
+        const baseProgress = summary.overallCompletionRate || 50;
+        const totalCompleted = summary.completedTasks || 0;
+        const totalAssigned = summary.totalTasks || 10;
+        const memberProductivity = summary.productivity || 60;
+
+        // Generate 30 days of member-specific timeline data
+        for (let i = 30; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(now.getDate() - i);
+
+            const dateStr = date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+
+            // Calculate daily progress (simulated)
+            const dailyProgress = Math.min(baseProgress * (i / 30) * (1 - (i / 30) * 0.3), 100);
+            const variation = Math.sin(i * 0.5) * 3 + Math.random() * 2;
+            const memberProgress = Math.min(dailyProgress + variation, 100);
+
+            // Simulate task completion pattern (more active on weekdays)
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            const baseTasks = isWeekend ? 0.5 : 2;
+            const dailyCompleted = Math.floor(baseTasks + Math.random() * 2);
+
+            // Calculate cumulative tasks
+            const cumulativeTasks = Math.min(
+                Math.floor(totalCompleted * (i / 30) * 1.2) + dailyCompleted,
+                totalCompleted
+            );
+
+            // Simulate productivity (higher on productive days)
+            const dailyProductivity = Math.min(
+                memberProductivity + Math.sin(i * 0.3) * 10 + Math.random() * 15,
+                100
+            );
+
+            timelineData.push({
+                date: dateStr,
+                memberProgress: parseFloat(memberProgress.toFixed(1)),
+                memberTasksCompleted: cumulativeTasks,
+                dailyCompletedTasks: dailyCompleted,
+                memberProductivity: parseFloat(dailyProductivity.toFixed(1)),
+                assignedTasks: totalAssigned,
+                activeProjects: summary.totalProjects || projects.length || 1,
+                completionRate: parseFloat(((cumulativeTasks / totalAssigned) * 100).toFixed(1)),
+                focusScore: parseFloat((70 + Math.sin(i) * 15).toFixed(1)), // Simulated focus metric
+                efficiencyScore: parseFloat((memberProgress * 0.6 + dailyProductivity * 0.4).toFixed(1))
+            });
+        }
+
+        return timelineData;
+    };
+
+
+    // Add this helper function
+    const calculateActualProjectProgress = (project) => {
+        if (!project) return 0;
+
+        const { doneTasks = 0, totalTasks = 0, daysElapsed = 0, projectDuration = 0 } = project;
+
+        // Calculate completion rate
+        const completionRate = totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0;
+
+        // Calculate timeline progress
+        const timelineProgress = projectDuration > 0 ? (daysElapsed / projectDuration) * 100 : 0;
+
+        // Return weighted average
+        return (completionRate * 0.7 + timelineProgress * 0.3);
+    };
+    // Helper function to generate member timeline insights
+    const generateMemberTimelineInsights = (memberStats) => {
+        const timelineData = generateMemberTimelineFromStats(memberStats);
+
+        // Calculate insights from the timeline data
+        const memberProgressValues = timelineData.map(d => d.memberProgress);
+        const productivityValues = timelineData.map(d => d.memberProductivity);
+        const taskValues = timelineData.map(d => d.dailyCompletedTasks);
+
+        // Find most productive day
+        let mostProductiveDay = { date: '', tasks: 0, productivity: 0 };
+        timelineData.forEach(day => {
+            if (day.dailyCompletedTasks > mostProductiveDay.tasks) {
+                mostProductiveDay = {
+                    date: day.date,
+                    tasks: day.dailyCompletedTasks,
+                    productivity: day.memberProductivity
+                };
+            }
+        });
+
+        // Calculate progress trend (last 7 days vs previous 7 days)
+        const recentWeek = timelineData.slice(-7);
+        const previousWeek = timelineData.slice(-14, -7);
+
+        const recentAvgProgress = recentWeek.reduce((sum, day) => sum + day.memberProgress, 0) / recentWeek.length;
+        const previousAvgProgress = previousWeek.reduce((sum, day) => sum + day.memberProgress, 0) / previousWeek.length;
+        const progressTrend = recentAvgProgress - previousAvgProgress;
+
+        // Calculate active days
+        const activeDays = timelineData.filter(day => day.dailyCompletedTasks > 0).length;
+
+        // Calculate consistency (standard deviation of daily progress)
+        const avgProgress = memberProgressValues.reduce((a, b) => a + b, 0) / memberProgressValues.length;
+        const squaredDiffs = memberProgressValues.map(value => Math.pow(value - avgProgress, 2));
+        const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / squaredDiffs.length;
+        const consistencyScore = Math.max(0, 100 - Math.sqrt(avgSquaredDiff) * 2);
+
+        return {
+            memberProgress: timelineData[timelineData.length - 1]?.memberProgress || 0,
+            averageDailyProgress: parseFloat((memberProgressValues.reduce((a, b) => a + b, 0) / memberProgressValues.length).toFixed(1)),
+            mostProductiveDay: mostProductiveDay,
+            memberProductivity: parseFloat((productivityValues.reduce((a, b) => a + b, 0) / productivityValues.length).toFixed(1)),
+            activeDays: activeDays,
+            progressTrend: parseFloat(progressTrend.toFixed(1)),
+            consistencyScore: parseFloat(consistencyScore.toFixed(1)),
+            avgTasksPerDay: parseFloat((taskValues.reduce((a, b) => a + b, 0) / taskValues.length).toFixed(1)),
+            peakProductivity: Math.max(...productivityValues),
+            currentFocusScore: timelineData[timelineData.length - 1]?.focusScore || 0,
+            currentEfficiencyScore: timelineData[timelineData.length - 1]?.efficiencyScore || 0
+        };
+    };
+
+    // Updated sample data generator with member support
+    // Replace generateRealisticTimelineData function with this:
+    const generateRealisticTimelineData = (memberId = null) => {
+        const now = new Date();
+        const data = [];
+        const isSingleProject = selectedProject?.project_id;
+        const isMemberView = memberId && memberId !== 'all';
+
+        // Use a deterministic seed based on project/member ID for consistent data
+        const getDeterministicValue = (base, index, maxVariation = 0.2) => {
+            const seed = (selectedProject?.project_id || memberId || 'all').toString();
+            const seedNumber = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const variation = Math.sin(index * 0.5 + seedNumber) * maxVariation;
+            return base * (1 + variation);
+        };
+
+        if (isSingleProject) {
+            // Get the actual project from filteredProjectsKPI
+            const project = filteredProjectsKPI[0];
+            if (!project) return [];
+
+            const {
+                totalTasks = 0,
+                doneTasks = 0,
+                todoTasks = 0,
+                inProgressTasks = 0,
+                daysElapsed = Math.max(project.daysElapsed || 0, 1),
+                projectDuration = project.projectDuration || 90,
+                completionRate = project.completionRate || 0,
+                totalMembers = project.totalMembers || 1
+            } = project;
+
+            // Generate timeline based on actual completion rate and tasks
+            for (let i = Math.min(daysElapsed, 60); i >= 0; i--) {
+                const date = new Date();
+                date.setDate(now.getDate() - i);
+
+                const dateStr = date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                // Calculate day in project timeline (0 = start, 1 = end)
+                const projectDay = daysElapsed - i;
+                const projectProgressRatio = projectDay / Math.max(1, daysElapsed);
+
+                // Calculate cumulative progress (s-curve: slow start, faster middle, slow finish)
+                let progressCurve;
+                if (projectProgressRatio < 0.2) {
+                    // Slow start: 0-20%
+                    progressCurve = 0.2 * Math.pow(projectProgressRatio / 0.2, 2);
+                } else if (projectProgressRatio < 0.8) {
+                    // Fast middle: 20-80%
+                    progressCurve = 0.2 + 0.6 * ((projectProgressRatio - 0.2) / 0.6);
+                } else {
+                    // Slow finish: 80-100%
+                    progressCurve = 0.8 + 0.2 * (1 - Math.pow((1 - projectProgressRatio) / 0.2, 2));
+                }
+
+                // Apply actual completion rate to the curve
+                const progress = completionRate * progressCurve;
+
+                // Calculate tasks based on progress
+                const cumulativeCompleted = Math.floor(doneTasks * progressCurve);
+                const totalSoFar = Math.floor(totalTasks * (0.3 + progressCurve * 0.7));
+
+                // Calculate daily values (deterministic based on day index)
+                const dailyVariation = Math.sin(i * 0.3) * 0.3 + Math.cos(i * 0.7) * 0.2;
+                const dailyNewTasks = Math.max(0, Math.floor(
+                    (totalTasks / Math.max(1, daysElapsed)) * (0.8 + dailyVariation)
+                ));
+
+                const dailyCompletedTasks = Math.max(0, Math.floor(
+                    (doneTasks / Math.max(1, daysElapsed)) * (0.7 + Math.sin(i * 0.5) * 0.3)
+                ));
+
+                // Calculate remaining tasks distribution
+                const remaining = totalSoFar - cumulativeCompleted;
+                const todoOnDay = Math.floor(remaining * 0.6);
+                const inProgressOnDay = remaining - todoOnDay;
+
+                data.unshift({
+                    date: dateStr,
+                    progress: parseFloat(Math.min(progress, 100).toFixed(1)),
+                    tasksCompleted: cumulativeCompleted,
+                    tasksCreated: totalSoFar,
+                    dailyNewTasks: dailyNewTasks,
+                    dailyCompletedTasks: dailyCompletedTasks,
+                    activeMembers: Math.max(1, Math.floor(totalMembers * (0.5 + Math.sin(i * 0.2) * 0.3))),
+                    todoTasks: todoOnDay,
+                    inProgressTasks: inProgressOnDay,
+                    projectEfficiency: parseFloat((progress * 0.6 + (dailyCompletedTasks / Math.max(1, dailyNewTasks)) * 40).toFixed(1))
+                });
+            }
+        } else if (isMemberView) {
+            // Member view - use memberStats for realistic data
+            const memberData = memberStats || {};
+            const {
+                totalTasks = 0,
+                completedTasks = 0,
+                totalProjects = 0,
+                overallCompletionRate = 0
+            } = memberData;
+
+            // Generate 60 days of member data
+            for (let i = 60; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(now.getDate() - i);
+
+                const dateStr = date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                // Calculate based on day index (deterministic)
+                const dayRatio = i / 60;
+
+                // Member progress curve (starts slower, accelerates)
+                const progressCurve = 1 - Math.pow(dayRatio, 1.5);
+                const memberProgress = overallCompletionRate * progressCurve;
+
+                // Cumulative tasks (deterministic growth)
+                const cumulativeTasks = Math.floor(completedTasks * progressCurve);
+
+                // Daily completed (higher on middle days, lower on start/end)
+                const dailyPattern = Math.sin((i / 60) * Math.PI); // Sine wave pattern
+                const dailyCompleted = Math.max(0, Math.floor(
+                    (completedTasks / 60) * (0.5 + dailyPattern * 0.5)
+                ));
+
+                // Productivity based on day of week (deterministic)
+                const dayOfWeek = date.getDay();
+                const weekdayFactor = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 1.2 : 0.7;
+                const memberProductivity = memberProgress * weekdayFactor * (0.8 + Math.sin(i * 0.2) * 0.2);
+
+                data.unshift({
+                    date: dateStr,
+                    memberProgress: parseFloat(Math.min(memberProgress, 100).toFixed(1)),
+                    memberTasksCompleted: cumulativeTasks,
+                    dailyCompletedTasks: dailyCompleted,
+                    memberProductivity: parseFloat(Math.min(memberProductivity, 100).toFixed(1)),
+                    assignedTasks: totalTasks,
+                    activeProjects: Math.max(1, Math.floor(totalProjects * (0.4 + Math.sin(i * 0.3) * 0.3))),
+                    completionRate: parseFloat(((cumulativeTasks / Math.max(1, totalTasks)) * 100).toFixed(1))
+                });
+            }
+        } else {
+            // All projects view
+            const totalTasks = allProjectsStats?.totalTasks || 0;
+            const completedTasks = allProjectsStats?.completedTasks || 0;
+            const overallCompletion = allProjectsStats?.completionRate || 0;
+            const totalProjects = filteredProjectsKPI.length;
+
+            // Generate 60 days of aggregated data
+            for (let i = 60; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(now.getDate() - i);
+
+                const dateStr = date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                const dayRatio = i / 60;
+
+                // Progress curve for all projects
+                const progressCurve = 1 - Math.pow(dayRatio, 1.2);
+                const progress = overallCompletion * progressCurve;
+
+                // Cumulative values (deterministic)
+                const cumulativeCompleted = Math.floor(completedTasks * progressCurve);
+                const cumulativeTotal = Math.floor(totalTasks * (0.2 + progressCurve * 0.8));
+
+                // Daily patterns (deterministic based on day index)
+                const dailyPattern = 0.5 + Math.sin(i * 0.4) * 0.3 + Math.cos(i * 0.2) * 0.2;
+                const dailyNewTasks = Math.max(1, Math.floor(
+                    (totalTasks / 60) * dailyPattern
+                ));
+
+                const dailyCompleted = Math.max(0, Math.floor(
+                    (completedTasks / 60) * (0.4 + Math.sin(i * 0.3) * 0.3)
+                ));
+
+                // Active projects (fluctuates but deterministic)
+                const baseActiveProjects = Math.max(1, Math.floor(totalProjects * 0.7));
+                const activeVariation = Math.sin(i * 0.2) * 0.3;
+                const activeProjects = Math.max(1, Math.floor(baseActiveProjects * (1 + activeVariation)));
+
+                data.unshift({
+                    date: dateStr,
+                    totalProgress: parseFloat(Math.min(progress, 100).toFixed(1)),
+                    completedTasks: cumulativeCompleted,
+                    newTasks: cumulativeTotal,
+                    dailyNewTasks: dailyNewTasks,
+                    dailyCompletedTasks: dailyCompleted,
+                    activeProjects: activeProjects,
+                    activeMembers: Math.floor(activeProjects * 2.5), // ~2.5 members per project
+                    productivity: parseFloat(Math.min(progress * (0.8 + Math.sin(i * 0.2) * 0.2), 100).toFixed(1)),
+                    teamEfficiency: parseFloat((progress * 0.6 + (dailyCompleted / Math.max(1, dailyNewTasks)) * 40).toFixed(1))
+                });
+            }
+        }
+
+        return data;
+    };
+    // Helper function to generate dynamic member insights
+    const generateDynamicMemberInsights = (data) => {
+        if (!data || data.length === 0) {
+            return {
+                memberProgress: 0,
+                averageDailyProgress: 0,
+                mostProductiveDay: null,
+                memberProductivity: 0,
+                activeDays: 0,
+                progressTrend: 0,
+                consistencyScore: 0
+            };
+        }
+
+        const progressValues = data.map(d => d.memberProgress);
+        const productivityValues = data.map(d => d.memberProductivity);
+        const taskValues = data.map(d => d.dailyCompletedTasks);
+
+        // Find most productive day
+        let mostProductiveDay = { date: '', tasks: 0, productivity: 0 };
+        data.forEach(day => {
+            if (day.dailyCompletedTasks > mostProductiveDay.tasks) {
+                mostProductiveDay = {
+                    date: day.date,
+                    tasks: day.dailyCompletedTasks,
+                    productivity: day.memberProductivity
+                };
+            }
+        });
+
+        // Calculate progress trend (last 7 days vs previous 7 days)
+        const recentWeek = data.slice(-7);
+        const previousWeek = data.slice(-14, -7);
+
+        const recentAvgProgress = recentWeek.reduce((sum, day) => sum + day.memberProgress, 0) / recentWeek.length;
+        const previousAvgProgress = previousWeek.reduce((sum, day) => sum + day.memberProgress, 0) / previousWeek.length;
+        const progressTrend = recentAvgProgress - previousAvgProgress;
+
+        // Calculate active days
+        const activeDays = data.filter(day => day.dailyCompletedTasks > 0).length;
+
+        // Calculate consistency (standard deviation of daily progress)
+        const avgProgress = progressValues.reduce((a, b) => a + b, 0) / progressValues.length;
+        const squaredDiffs = progressValues.map(value => Math.pow(value - avgProgress, 2));
+        const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / squaredDiffs.length;
+        const consistencyScore = Math.max(0, 100 - Math.sqrt(avgSquaredDiff) * 1.5);
+
+        // Calculate average daily progress
+        const progressChanges = [];
+        for (let i = 1; i < progressValues.length; i++) {
+            progressChanges.push(progressValues[i] - progressValues[i - 1]);
+        }
+        const averageDailyProgress = progressChanges.length > 0
+            ? progressChanges.reduce((a, b) => a + b, 0) / progressChanges.length
+            : 0;
+
+        return {
+            memberProgress: data[data.length - 1]?.memberProgress || 0,
+            averageDailyProgress: parseFloat(averageDailyProgress.toFixed(1)),
+            mostProductiveDay: mostProductiveDay.tasks > 0 ? mostProductiveDay : null,
+            memberProductivity: parseFloat((productivityValues.reduce((a, b) => a + b, 0) / productivityValues.length).toFixed(1)),
+            activeDays: activeDays,
+            progressTrend: parseFloat(progressTrend.toFixed(1)),
+            consistencyScore: parseFloat(consistencyScore.toFixed(1)),
+            avgTasksPerDay: parseFloat((taskValues.reduce((a, b) => a + b, 0) / taskValues.length).toFixed(1)),
+            peakProductivity: Math.max(...productivityValues),
+            currentFocusScore: data[data.length - 1]?.focusScore || 0,
+            currentEfficiencyScore: data[data.length - 1]?.efficiencyScore || 0,
+            taskCompletionRate: parseFloat(((data[data.length - 1]?.completionRate || 0) / 100).toFixed(2))
+        };
+    };
+
+    // Helper function to generate dynamic project insights
+    const generateDynamicProjectInsights = (data) => {
+        if (!data || data.length === 0) {
+            return {
+                currentProgress: 0,
+                averageDailyProgress: 0,
+                peakProgressDay: null,
+                progressTrend: 0,
+                productivityScore: 0,
+                consistencyScore: 0
+            };
+        }
+
+        const progressValues = data.map(d => d.progress);
+        const taskValues = data.map(d => d.dailyCompletedTasks);
+
+        // Find peak progress day
+        let peakProgressDay = { date: '', progressIncrease: 0 };
+        for (let i = 1; i < data.length; i++) {
+            const progressIncrease = data[i].progress - data[i - 1].progress;
+            if (progressIncrease > peakProgressDay.progressIncrease) {
+                peakProgressDay = {
+                    date: data[i].date,
+                    progressIncrease: progressIncrease
+                };
+            }
+        }
+
+        // Calculate progress trend
+        const recentWeek = data.slice(-7);
+        const firstProgress = recentWeek[0]?.progress || 0;
+        const lastProgress = recentWeek[recentWeek.length - 1]?.progress || 0;
+        const progressTrend = ((lastProgress - firstProgress) / Math.max(1, firstProgress)) * 100;
+
+        // Calculate average daily progress
+        const progressChanges = [];
+        for (let i = 1; i < progressValues.length; i++) {
+            progressChanges.push(progressValues[i] - progressValues[i - 1]);
+        }
+        const averageDailyProgress = progressChanges.length > 0
+            ? progressChanges.reduce((a, b) => a + b, 0) / progressChanges.length
+            : 0;
+
+        // Calculate productivity score
+        const totalCompletedTasks = taskValues.reduce((a, b) => a + b, 0);
+        const productivityScore = totalCompletedTasks / data.length;
+
+        // Calculate consistency
+        const avgProgress = progressValues.reduce((a, b) => a + b, 0) / progressValues.length;
+        const squaredDiffs = progressValues.map(value => Math.pow(value - avgProgress, 2));
+        const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / squaredDiffs.length;
+        const consistencyScore = Math.max(0, 100 - Math.sqrt(avgSquaredDiff) * 2);
+
+        return {
+            currentProgress: data[data.length - 1]?.progress || 0,
+            averageDailyProgress: parseFloat(averageDailyProgress.toFixed(1)),
+            peakProgressDay: peakProgressDay.progressIncrease > 0 ? peakProgressDay : null,
+            progressTrend: parseFloat(progressTrend.toFixed(1)),
+            productivityScore: parseFloat(productivityScore.toFixed(1)),
+            consistencyScore: parseFloat(consistencyScore.toFixed(1)),
+            teamEngagement: parseFloat((data[data.length - 1]?.activeMembers / Math.max(1, selectedProject?.totalMembers || 3) * 100).toFixed(1)),
+            completionVelocity: parseFloat((averageDailyProgress * 7).toFixed(1)) // Weekly velocity
+        };
+    };
+
+    // Helper function to generate dynamic all projects insights
+    const generateDynamicAllProjectsInsights = (data) => {
+        if (!data || data.length === 0) {
+            return {
+                overallProgress: 0,
+                averageDailyProductivity: 0,
+                mostProductiveDay: null,
+                progressTrend: 0,
+                averageActiveProjects: 0,
+                teamEfficiency: 0
+            };
+        }
+
+        const progressValues = data.map(d => d.totalProgress);
+        const productivityValues = data.map(d => d.productivity);
+        const activeProjectValues = data.map(d => d.activeProjects);
+
+        // Find most productive day
+        let mostProductiveDay = { date: '', productivity: 0 };
+        data.forEach(day => {
+            if (day.productivity > mostProductiveDay.productivity) {
+                mostProductiveDay = {
+                    date: day.date,
+                    productivity: day.productivity
+                };
+            }
+        });
+
+        // Calculate progress trend
+        const recentWeek = data.slice(-7);
+        const firstProgress = recentWeek[0]?.totalProgress || 0;
+        const lastProgress = recentWeek[recentWeek.length - 1]?.totalProgress || 0;
+        const progressTrend = ((lastProgress - firstProgress) / Math.max(1, firstProgress)) * 100;
+
+        // Calculate averages
+        const averageDailyProductivity = productivityValues.reduce((a, b) => a + b, 0) / productivityValues.length;
+        const averageActiveProjects = activeProjectValues.reduce((a, b) => a + b, 0) / activeProjectValues.length;
+
+        // Calculate team efficiency
+        const teamEfficiency = data[data.length - 1]?.teamEfficiency || 0;
+
+        // Calculate project distribution
+        const maxProjects = Math.max(...activeProjectValues);
+        const minProjects = Math.min(...activeProjectValues);
+        const projectStability = parseFloat(((averageActiveProjects / Math.max(1, maxProjects)) * 100).toFixed(1));
+
+        return {
+            overallProgress: data[data.length - 1]?.totalProgress || 0,
+            averageDailyProductivity: parseFloat(averageDailyProductivity.toFixed(1)),
+            mostProductiveDay: mostProductiveDay.productivity > 0 ? mostProductiveDay : null,
+            progressTrend: parseFloat(progressTrend.toFixed(1)),
+            averageActiveProjects: parseFloat(averageActiveProjects.toFixed(1)),
+            teamEfficiency: parseFloat(teamEfficiency.toFixed(1)),
+            projectStability: projectStability,
+            peakProductivity: Math.max(...productivityValues),
+            totalTaskThroughput: parseFloat((data.reduce((sum, day) => sum + day.dailyCompletedTasks, 0)).toFixed(0)),
+            teamProductivityTrend: parseFloat(((productivityValues[productivityValues.length - 1] - productivityValues[0]) / Math.max(1, productivityValues[0]) * 100).toFixed(1))
+        };
+    };
+
 
     useEffect(() => {
         console.log('🔍 ProjectStatistics Props:', {
@@ -263,9 +1778,11 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             projectName: selectedProject?.['project-name']
         });
 
+        // Load statistics
         if (selectedProject?.project_id) {
             console.log('🚀 Loading stats for project:', selectedProject['project-name']);
-               loadAllProjectsStatistics();
+            loadAllProjectsStatistics();
+            // Don't clear cache here - let loadTimelineData handle it
         } else {
             console.log('⚠️ No valid project selected, loading all projects stats');
             loadAllProjectsStatistics();
@@ -273,6 +1790,12 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedProject]);
 
+    // Add another useEffect to load timeline when data is ready
+    useEffect(() => {
+        if (filteredProjectsKPI.length > 0 || memberStats) {
+            loadTimelineData(selectedMember);
+        }
+    }, [filteredProjectsKPI, memberStats, selectedMember]);
     // Handle member filter change
     const handleMemberFilterChange = (memberId) => {
         console.log('🔧 Filter changed to member:', memberId);
@@ -366,7 +1889,6 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
         if (loading && !stats.projectId) {
             return <LoadingSpinner message={`Loading statistics for ${selectedProject['project-name']}...`} />;
         }
-
         // Return actual project statistics view
         return (
             <div style={{
@@ -1322,10 +2844,17 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                         </div>
                     </div>
                 )}
+
+                {/* Timeline Evolution Chart - ADD THIS RIGHT AFTER THE COMPARISON CHART */}
+                {/* In your return statement, update this line: */}
+                <TimelineChart memberId={selectedMember} />
+
             </div>
         </div>
     );
 };
+
+
 
 // ProjectKPICard Component (Grid View)
 const ProjectKPICard = ({ project, avgTasksPerDay, isFilteredView = false }) => {
@@ -2067,5 +3596,6 @@ const EmptyState = ({ icon, title, message }) => (
         <p style={{ color: '#666', fontSize: '16px' }}>{message}</p>
     </div>
 );
+
 
 export default ProjectStatistics;
