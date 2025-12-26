@@ -11,6 +11,12 @@ const Board = () => {
   const { user } = useAuth();
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [allProjectsStats, setAllProjectsStats] = useState({
+    totalTasks: 0,
+    completedTasks: 0,
+    completionRate: 0,
+    totalProjects: 0
+  });
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState({
@@ -50,9 +56,51 @@ const Board = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
+
+    const loadAllProjectsStatistics = async () => {
+    try {
+      setLoading(true);
+      console.log('📊 Loading all projects statistics...');
+
+
+
+      // Load statistics
+      const projectsData = await ApiService.getProjectsByStats();
+      console.log('✅ Projects data from getProjectsByStats():', projectsData);
+
+      if (!projectsData) {
+        console.error('❌ projectsData is null or undefined');
+        setAllProjectsStats({ totalTasks: 0, completedTasks: 0, completionRate: 0, totalProjects: 0 });
+        return;
+      }
+
+      const projects = projectsData.projects || [];
+      console.log(`📊 Extracted ${projects.length} projects from projectsData`);
+
+
+      // Also get summary separately for global stats
+      const summary = await ApiService.getStatisticsSummary();
+
+      setAllProjectsStats(summary);
+
+
+    } catch (error) {
+      console.error('❌ Failed to load statistics:', error);
+      setAllProjectsStats({
+        totalTasks: 0,
+        completedTasks: 0,
+        completionRate: 0,
+        totalProjects: 0
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   useEffect(() => {
     if (user) {
       loadUserProjects();
+      loadAllProjectsStatistics(); // Load stats on mount
     }
   }, [user]);
 
@@ -624,21 +672,21 @@ const Board = () => {
             <div className="stat-card">
               <div className="stat-icon">📝</div>
               <div className="stat-info">
-                <div className="stat-number">{stats.totalTasks}</div>
+                <div className="stat-number">{allProjectsStats.totalTasks}</div>
                 <div className="stat-label">Total Tasks</div>
               </div>
             </div>
             <div className="stat-card">
               <div className="stat-icon">✅</div>
               <div className="stat-info">
-                <div className="stat-number">{stats.completedTasks}</div>
+                <div className="stat-number">{allProjectsStats.completedTasks}</div>
                 <div className="stat-label">Completed</div>
               </div>
             </div>
             <div className="stat-card">
               <div className="stat-icon">📈</div>
               <div className="stat-info">
-                <div className="stat-number">{stats.completionRate}%</div>
+                <div className="stat-number">{allProjectsStats.completionRate}%</div>
                 <div className="stat-label">Progress</div>
               </div>
             </div>
