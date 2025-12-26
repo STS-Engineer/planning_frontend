@@ -18,10 +18,7 @@ const Header = () => {
   };
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'boards', label: 'Boards', icon: '📋' },
-    { id: 'templates', label: 'Templates', icon: '🎨' },
-    { id: 'reports', label: 'Reports', icon: '📈' }
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' }
   ];
 
   return (
