@@ -2844,11 +2844,6 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                         </div>
                     </div>
                 )}
-
-                {/* Timeline Evolution Chart - ADD THIS RIGHT AFTER THE COMPARISON CHART */}
-                {/* In your return statement, update this line: */}
-                <TimelineChart memberId={selectedMember} />
-
             </div>
         </div>
     );
