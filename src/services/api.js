@@ -2,16 +2,16 @@
 const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter';
 
 class ApiService {
-   constructor() {
+  constructor() {
     this.accessToken = localStorage.getItem('accessToken');
     this.refreshToken = localStorage.getItem('refreshToken');
     this.isRefreshing = false;
     this.failedQueue = [];
   }
 
- /* =========================
-     TOKEN MANAGEMENT
-  ========================== */
+  /* =========================
+      TOKEN MANAGEMENT
+   ========================== */
 
   setTokens(accessToken, refreshToken) {
     this.accessToken = accessToken;
@@ -83,7 +83,7 @@ class ApiService {
   }
 
 
-async request(endpoint, options = {}, retry = true) {
+  async request(endpoint, options = {}, retry = true) {
     const url = `${API_BASE_URL}${endpoint}`;
 
     const response = await fetch(url, {
@@ -439,6 +439,278 @@ async request(endpoint, options = {}, retry = true) {
   }
 
 
+  async getProjectTimeline(projectId) {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/statistics/project/${projectId}/timeline`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching project timeline:', error);
+      return null;
+    }
+  }
+
+  async getAllProjectsTimeline() {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/statistics/timeline/aggregated', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching all projects timeline:', error);
+      return null;
+    }
+  }
+
+
+  // Add this method to your ApiService class in api.js
+  async getMemberTimeline(memberId) {
+    try {
+      console.log(`📊 Fetching member timeline for member: ${memberId}`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/statistics/member/${memberId}/timeline`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('⚠️ Member timeline endpoint not found, will use fallback');
+          return null; // Will trigger fallback
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(`✅ Member timeline loaded: ${data.timelineData?.length || 0} days`);
+      return data;
+
+    } catch (error) {
+      console.error('❌ Error fetching member timeline:', error);
+      return null;
+    }
+  }
+
+  // Also add this fallback method for generating member timeline
+  async generateMemberTimelineFallback(memberId) {
+    try {
+      console.log(`🔄 Generating fallback timeline for member: ${memberId}`);
+
+      // First, get member statistics
+      const memberStats = await this.getMemberStatistics(memberId);
+
+      if (!memberStats) {
+        return this.generateSampleMemberTimeline(memberId);
+      }
+
+      // Use your existing generateMemberTimelineFromStats function logic
+      const now = new Date();
+      const timelineData = [];
+      const member = memberStats.member || {};
+      const summary = memberStats.summary || {};
+      const projects = memberStats.projects || [];
+
+      // Base metrics from member stats
+      const baseProgress = summary.overallCompletionRate || 50;
+      const totalCompleted = summary.completedTasks || 0;
+      const totalAssigned = summary.totalTasks || 10;
+      const memberProductivity = summary.productivity || 60;
+
+      // Generate 30 days of member-specific timeline data
+      for (let i = 30; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(now.getDate() - i);
+
+        const dateStr = date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+
+        // Calculate daily progress
+        const dailyProgress = Math.min(baseProgress * (i / 30) * (1 - (i / 30) * 0.3), 100);
+        const variation = Math.sin(i * 0.5) * 3 + Math.random() * 2;
+        const memberProgress = Math.min(dailyProgress + variation, 100);
+
+        // Simulate task completion pattern
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+        const baseTasks = isWeekend ? 0.5 : 2;
+        const dailyCompleted = Math.floor(baseTasks + Math.random() * 2);
+
+        // Calculate cumulative tasks
+        const cumulativeTasks = Math.min(
+          Math.floor(totalCompleted * (i / 30) * 1.2) + dailyCompleted,
+          totalCompleted
+        );
+
+        // Simulate productivity
+        const dailyProductivity = Math.min(
+          memberProductivity + Math.sin(i * 0.3) * 10 + Math.random() * 15,
+          100
+        );
+
+        timelineData.push({
+          date: dateStr,
+          memberProgress: parseFloat(memberProgress.toFixed(1)),
+          memberTasksCompleted: cumulativeTasks,
+          dailyCompletedTasks: dailyCompleted,
+          memberProductivity: parseFloat(dailyProductivity.toFixed(1)),
+          assignedTasks: totalAssigned,
+          activeProjects: summary.totalProjects || projects.length || 1,
+          completionRate: parseFloat(((cumulativeTasks / totalAssigned) * 100).toFixed(1))
+        });
+      }
+
+      // Calculate insights
+      const insights = this.calculateMemberTimelineInsights(timelineData);
+
+      return {
+        timelineData: timelineData,
+        insights: insights,
+        memberInfo: {
+          name: member.name || member.email?.split('@')[0] || `Member ${memberId}`,
+          totalProjects: summary.totalProjects || 0,
+          totalTasks: summary.totalTasks || 0
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Error generating fallback timeline:', error);
+      return this.generateSampleMemberTimeline(memberId);
+    }
+  }
+
+  // Helper method for sample data
+  generateSampleMemberTimeline(memberId) {
+    console.log(`🎭 Generating sample timeline for member: ${memberId}`);
+
+    const now = new Date();
+    const timelineData = [];
+
+    // Generate 30 days of sample data
+    for (let i = 30; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(now.getDate() - i);
+
+      const dateStr = date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      });
+
+      const dayOfWeek = date.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const productivityMultiplier = isWeekend ? 0.6 : 1.2;
+
+      const baseProgress = (60 / 30) * (30 - i);
+      const variation = Math.sin(i * 0.5) * 10 + Math.random() * 5;
+      const memberProgress = Math.min(baseProgress + variation, 100);
+
+      const dailyCompleted = Math.floor(Math.random() * 3 * productivityMultiplier) + (i % 5 === 0 ? 2 : 0);
+      const cumulativeCompleted = Math.floor(50 * (i / 30)) + dailyCompleted;
+
+      timelineData.push({
+        date: dateStr,
+        memberProgress: parseFloat(memberProgress.toFixed(1)),
+        memberTasksCompleted: cumulativeCompleted,
+        dailyCompletedTasks: dailyCompleted,
+        memberProductivity: parseFloat((memberProgress * productivityMultiplier).toFixed(1)),
+        assignedTasks: 65,
+        activeProjects: 3,
+        completionRate: parseFloat(((cumulativeCompleted / 65) * 100).toFixed(1))
+      });
+    }
+
+    return {
+      timelineData: timelineData,
+      insights: this.calculateMemberTimelineInsights(timelineData),
+      memberInfo: {
+        name: `Member ${memberId}`,
+        totalProjects: 3,
+        totalTasks: 65
+      }
+    };
+  }
+
+  // Calculate member timeline insights
+  calculateMemberTimelineInsights(timelineData) {
+    if (!timelineData || timelineData.length === 0) {
+      return {
+        memberProgress: 0,
+        averageDailyProgress: 0,
+        mostProductiveDay: null,
+        memberProductivity: 0,
+        activeDays: 0,
+        progressTrend: 0,
+        consistencyScore: 0,
+        avgTasksPerDay: 0,
+        peakProductivity: 0
+      };
+    }
+
+    const progressValues = timelineData.map(d => d.memberProgress);
+    const productivityValues = timelineData.map(d => d.memberProductivity);
+    const taskValues = timelineData.map(d => d.dailyCompletedTasks);
+
+    // Find most productive day
+    let mostProductiveDay = { date: '', tasks: 0, productivity: 0 };
+    timelineData.forEach(day => {
+      if (day.dailyCompletedTasks > mostProductiveDay.tasks) {
+        mostProductiveDay = {
+          date: day.date,
+          tasks: day.dailyCompletedTasks,
+          productivity: day.memberProductivity
+        };
+      }
+    });
+
+    // Calculate progress trend (last 7 days vs previous 7 days)
+    const recentWeek = timelineData.slice(-7);
+    const previousWeek = timelineData.slice(-14, -7);
+
+    const recentAvgProgress = recentWeek.reduce((sum, day) => sum + day.memberProgress, 0) / recentWeek.length;
+    const previousAvgProgress = previousWeek.reduce((sum, day) => sum + day.memberProgress, 0) / previousWeek.length;
+    const progressTrend = recentAvgProgress - previousAvgProgress;
+
+    // Calculate active days
+    const activeDays = timelineData.filter(day => day.dailyCompletedTasks > 0).length;
+
+    // Calculate consistency
+    const avgProgress = progressValues.reduce((a, b) => a + b, 0) / progressValues.length;
+    const squaredDiffs = progressValues.map(value => Math.pow(value - avgProgress, 2));
+    const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / squaredDiffs.length;
+    const consistencyScore = Math.max(0, 100 - Math.sqrt(avgSquaredDiff) * 2);
+
+    return {
+      memberProgress: timelineData[timelineData.length - 1]?.memberProgress || 0,
+      averageDailyProgress: parseFloat((progressValues.reduce((a, b) => a + b, 0) / progressValues.length).toFixed(1)),
+      mostProductiveDay: mostProductiveDay.tasks > 0 ? mostProductiveDay : null,
+      memberProductivity: parseFloat((productivityValues.reduce((a, b) => a + b, 0) / productivityValues.length).toFixed(1)),
+      activeDays: activeDays,
+      progressTrend: parseFloat(progressTrend.toFixed(1)),
+      consistencyScore: parseFloat(consistencyScore.toFixed(1)),
+      avgTasksPerDay: parseFloat((taskValues.reduce((a, b) => a + b, 0) / taskValues.length).toFixed(1)),
+      peakProductivity: Math.max(...productivityValues)
+    };
+  }
 
 
 }
