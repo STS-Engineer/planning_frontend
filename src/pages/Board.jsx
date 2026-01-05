@@ -768,26 +768,37 @@ const clearFilters = () => {
       </select>
       
       {/* Person Filter - ADD THIS */}
-  {user?.role === 'ADMIN' && (
-  <select
-   value={filterPerson}
-   onChange={(e) => setFilterPerson(e.target.value)}
-     className="filter-select"
-      >
-       <option value="all">All People</option>
-       {/* Get unique members from all projects */}
-       {Array.from(new Set(projects.flatMap(project =>
-       project.members?.map(member => ({
-       id: member.id,
-       name: member.name || member.email.split('@')[0].replace(/\./g, ' ')
-        })) || []
-       ))).map(member => (
-      <option key={member.id} value={member.id}>
+     {user?.role === 'ADMIN' && (
+        <select
+          value={filterPerson}
+         onChange={(e) => setFilterPerson(e.target.value)}
+         className="filter-select"
+          >
+          <option value="all">All People</option>
+
+          {Array.from(
+            new Map(
+            projects.flatMap(project =>
+             project.members?.map(member => [
+              member.id,
+               {
+              id: member.id,
+              name:
+               member.name ||
+               member.email
+              ?.split('@')[0]
+             .replace(/\./g, ' ')
+           }
+           ]) || []
+          )
+          ).values()
+        ).map(member => (
+       <option key={member.id} value={member.id}>
      👤 {member.name}
-     </option>
+      </option>
       ))}
-    </select>
-        )}
+      </select>
+         )}
     </div>
     
     {/* Optional: Add clear all filters button */}
