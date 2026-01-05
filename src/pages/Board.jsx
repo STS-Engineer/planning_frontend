@@ -55,7 +55,7 @@ const Board = () => {
   // Add filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-
+  const [filterPerson, setFilterPerson] = useState('all'); // Add this line
 
     const loadAllProjectsStatistics = async () => {
     try {
@@ -152,45 +152,57 @@ const Board = () => {
 
 
   // Add filter function
-  const filteredProjects = useMemo(() => {
-    let filtered = projects;
+// Update the filteredProjects useMemo function
+const filteredProjects = useMemo(() => {
+  let filtered = projects;
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(project =>
-        project['project-name'].toLowerCase().includes(searchQuery.toLowerCase())
+  // Filter by search query
+  if (searchQuery.trim()) {
+    filtered = filtered.filter(project =>
+      project['project-name'].toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
+
+  // Filter by status
+  if (filterStatus !== 'all') {
+    filtered = filtered.filter(project => {
+      // Add your status filtering logic here based on your project status field
+      // For now, let's assume projects have a status field
+      return project.status === filterStatus;
+    });
+  }
+
+  // Filter by person - ADD THIS SECTION
+  if (filterPerson !== 'all') {
+    filtered = filtered.filter(project => {
+      // Check if the selected person is a member of the project
+      return project.members?.some(member => 
+        member.id.toString() === filterPerson || 
+        member.email?.toLowerCase().includes(filterPerson.toLowerCase())
       );
-    }
+    });
+  }
 
-    // Filter by status (you can implement this based on your project status logic)
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(project => {
-        // Add your status filtering logic here
-        // Example: if you have a project.status field
-        // return project.status === filterStatus;
-        return true; // Placeholder - implement based on your needs
-      });
-    }
+  // If a project is selected, show it first
+  if (selectedProject) {
+    const selected = filtered.find(p => p.project_id === selectedProject.project_id);
+    const others = filtered.filter(p => p.project_id !== selectedProject.project_id);
+    return selected ? [selected, ...others] : filtered;
+  }
 
-    // If a project is selected, show it first
-    if (selectedProject) {
-      const selected = filtered.find(p => p.project_id === selectedProject.project_id);
-      const others = filtered.filter(p => p.project_id !== selectedProject.project_id);
-      return selected ? [selected, ...others] : filtered;
-    }
-
-    return filtered;
-  }, [projects, searchQuery, filterStatus, selectedProject]);
+  return filtered;
+}, [projects, searchQuery, filterStatus, filterPerson, selectedProject]); // Add filterPerson to dependencies
 
   // Rest of your existing functions remain the same...
   // loadProjectTasks, loadMembers, getInitialBoardStructure, etc.
 
   // Add function to clear filters
-  const clearFilters = () => {
-    setSearchQuery('');
-    setFilterStatus('all');
-  };
-
+// Add function to clear filters - UPDATE EXISTING FUNCTION
+const clearFilters = () => {
+  setSearchQuery('');
+  setFilterStatus('all');
+  setFilterPerson('all'); // Add this line
+};
   // Add function to get project stats for filter display
   const getFilterStats = () => {
     const total = projects.length;
@@ -720,41 +732,88 @@ const Board = () => {
               </div>
 
                     {/* ADD FILTER BAR SECTION HERE */}
-            <div className="filter-bar">
-              <div className="filter-controls">
-                <div className="search-box">
-                  <span className="search-icon">🔍</span>
-                  <input
-                    type="text"
-                    placeholder="Search projects by name..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="search-input"
-                  />
-                  {searchQuery && (
-                    <button
-                      className="clear-search"
-                      onClick={() => setSearchQuery('')}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
+{/* UPDATE THE FILTER BAR SECTION */}
+<div className="filter-bar">
+  <div className="filter-controls">
+    <div className="search-box">
+      <span className="search-icon">🔍</span>
+      <input
+        type="text"
+        placeholder="Search projects by name..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="search-input"
+      />
+      {searchQuery && (
+        <button
+          className="clear-search"
+          onClick={() => setSearchQuery('')}
+        >
+          ×
+        </button>
+      )}
+    </div>
 
-                <div className="filter-selects">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">All Projects</option>
-                    <option value="active">Active</option>
-                    <option value="completed">Completed</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-              </div>
-            </div>
+    <div className="filter-selects">
+      {/* Status Filter */}
+      <select
+        value={filterStatus}
+        onChange={(e) => setFilterStatus(e.target.value)}
+        className="filter-select"
+      >
+        <option value="all">All Projects</option>
+        <option value="active">Active</option>
+        <option value="completed">Completed</option>
+        <option value="archived">Archived</option>
+      </select>
+      
+      {/* Person Filter - ADD THIS */}
+      <select
+        value={filterPerson}
+        onChange={(e) => setFilterPerson(e.target.value)}
+        className="filter-select"
+      >
+        <option value="all">All People</option>
+        {/* Get unique members from all projects */}
+        {Array.from(new Set(projects.flatMap(project => 
+          project.members?.map(member => ({
+            id: member.id,
+            name: member.name || member.email.split('@')[0].replace(/\./g, ' ')
+          })) || []
+        ))).map(member => (
+          <option key={member.id} value={member.id}>
+            👤 {member.name}
+          </option>
+        ))}
+      </select>
+    </div>
+    
+    {/* Optional: Add clear all filters button */}
+    {(searchQuery || filterStatus !== 'all' || filterPerson !== 'all') && (
+      <button
+        className="clear-filters-btn"
+        onClick={clearFilters}
+      >
+        Clear All Filters
+      </button>
+    )}
+  </div>
+  
+  {/* Show filter stats */}
+  <div className="filter-stats">
+    <span className="filter-stat">
+      Showing {filteredProjects.length} of {projects.length} projects
+    </span>
+    {(searchQuery || filterStatus !== 'all' || filterPerson !== 'all') && (
+      <span className="filter-active">
+        Filters active: 
+        {searchQuery && " Search"}
+        {filterStatus !== 'all' && " Status"}
+        {filterPerson !== 'all' && " Person"}
+      </span>
+    )}
+  </div>
+</div>
 
               <div className="projects-grid">
                 {filteredProjects.length > 0 ? (
