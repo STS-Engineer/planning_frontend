@@ -768,38 +768,38 @@ const clearFilters = () => {
       </select>
       
       {/* Person Filter - ADD THIS */}
-     {user?.role === 'ADMIN' && (
-        <select
-          value={filterPerson}
-         onChange={(e) => setFilterPerson(e.target.value)}
-         className="filter-select"
-          >
-          <option value="all">All People</option>
+            {user?.role === 'ADMIN' && (
+            <select
+              value={filterPerson}
+              onChange={(e) => setFilterPerson(e.target.value)}
+              className="filter-select"
+                >
+              <option value="all">All People</option>
 
-          {Array.from(
-            new Map(
-            projects.flatMap(project =>
-             project.members?.map(member => [
-              member.id,
+              {Array.from(
+              new Map(
+               projects.flatMap(project =>
+               project.members?.map(member => [
+               member.id,
                {
-              id: member.id,
-              name:
-               member.name ||
-               member.email
-              ?.split('@')[0]
-             .replace(/\./g, ' ')
-           }
-           ]) || []
-          )
-          ).values()
-        ).map(member => (
-       <option key={member.id} value={member.id}>
-     👤 {member.name}
-      </option>
-      ))}
-      </select>
-         )}
-    </div>
+                id: member.id,
+                name:
+                member.name ||
+                member.email
+                ?.split('@')[0]
+                .replace(/\./g, ' ')
+                                }
+                ]) || []
+                )
+               ).values()
+              ).map(member => (
+              <option key={member.id} value={member.id}>
+              👤 {member.name}
+              </option>
+            ))}
+          </select>
+        )}
+       </div>
     
     {/* Optional: Add clear all filters button */}
     {(searchQuery || filterStatus !== 'all' || filterPerson !== 'all') && (
