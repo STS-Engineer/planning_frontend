@@ -43,8 +43,13 @@
 
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===================================
@@ -225,7 +230,8 @@
   min-height: 300px;
   display: flex;
   flex-direction: column;
-  align-items: center; /* Center everything horizontally */
+  align-items: center;
+  /* Center everything horizontally */
   width: 100%;
 }
 
@@ -276,6 +282,7 @@
 .project-tasks-full-width {
   width: 100%;
 }
+
 /* ===================================
    PROJECT CARD STYLES
    =================================== */
@@ -461,113 +468,6 @@
   border-color: #fc8181;
 }
 
-
-/* Filter Bar Styles */
-.filter-bar {
-  background: white;
-  border-radius: 12px;
-  padding: 15px 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  border: 1px solid #e9ecef;
-}
-
-.filter-controls {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.filter-selects {
-  display: flex;
-  gap: 10px;
-}
-
-.filter-select {
-  padding: 8px 15px;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  background: white;
-  font-size: 14px;
-  min-width: 150px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.filter-select:hover {
-  border-color: #007bff;
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-}
-
-.clear-filters-btn {
-  padding: 8px 15px;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #6c757d;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.clear-filters-btn:hover {
-  background: #e9ecef;
-  color: #495057;
-}
-
-.filter-stats {
-  margin-top: 10px;
-  display: flex;
-  gap: 15px;
-  font-size: 13px;
-  color: #6c757d;
-}
-
-.filter-stat {
-  font-weight: 500;
-}
-
-.filter-active {
-  color: #007bff;
-  font-weight: 500;
-}
-
-/* For better dropdown appearance */
-.filter-select option {
-  padding: 8px;
-}
-
-/* Ensure search box and filters align properly */
-.search-box {
-  flex: 1;
-  max-width: 300px;
-}
-
-@media (max-width: 768px) {
-  .filter-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .search-box {
-    max-width: 100%;
-  }
-  
-  .filter-selects {
-    width: 100%;
-  }
-  
-  .filter-select {
-    flex: 1;
-  }
-}
-
 /* ===================================
    TASK BOARD CONTAINER
    =================================== */
@@ -586,6 +486,7 @@
     opacity: 0;
     transform: translateY(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -671,7 +572,8 @@
   gap: 16px;
 }
 
-.task-input, .task-description {
+.task-input,
+.task-description {
   padding: 14px 16px;
   border: 2px solid #e2e8f0;
   border-radius: 12px;
@@ -680,7 +582,8 @@
   font-family: inherit;
 }
 
-.task-input:focus, .task-description:focus {
+.task-input:focus,
+.task-description:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -879,25 +782,25 @@
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .search-box {
     max-width: 100%;
   }
-  
+
   .filter-selects {
     width: 100%;
   }
-  
+
   .filter-select {
     width: 100%;
   }
-  
+
   .filter-header {
     flex-direction: column;
     align-items: stretch;
     gap: 1rem;
   }
-  
+
   .filter-stats {
     justify-content: space-between;
   }
@@ -936,7 +839,8 @@
 /* ===================================
    EMPTY STATES
    =================================== */
-.empty-projects, .welcome-empty-state {
+.empty-projects,
+.welcome-empty-state {
   grid-column: 1 / -1;
   text-align: center;
   padding: 80px 40px;
@@ -945,7 +849,8 @@
   margin: 20px 0;
 }
 
-.empty-projects .empty-icon, .empty-illustration {
+.empty-projects .empty-icon,
+.empty-illustration {
   font-size: 5rem;
   margin-bottom: 24px;
   opacity: 0.7;
@@ -953,18 +858,27 @@
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
-.empty-projects h3, .welcome-empty-state h2 {
+.empty-projects h3,
+.welcome-empty-state h2 {
   font-size: 1.8rem;
   color: #2d3748;
   margin-bottom: 16px;
   font-weight: 700;
 }
 
-.empty-projects p, .welcome-empty-state p {
+.empty-projects p,
+.welcome-empty-state p {
   color: #718096;
   margin-bottom: 30px;
   font-size: 1.1rem;
@@ -1016,8 +930,13 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-content {
@@ -1037,6 +956,7 @@
     opacity: 0;
     transform: translateY(50px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1357,6 +1277,112 @@
   color: #f44336;
 }
 
+/* Filter Bar Styles */
+.filter-bar {
+  background: white;
+  border-radius: 12px;
+  padding: 15px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e9ecef;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.filter-selects {
+  display: flex;
+  gap: 10px;
+}
+
+.filter-select {
+  padding: 8px 15px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  min-width: 150px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-select:hover {
+  border-color: #007bff;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.clear-filters-btn {
+  padding: 8px 15px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-filters-btn:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.filter-stats {
+  margin-top: 10px;
+  display: flex;
+  gap: 15px;
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.filter-stat {
+  font-weight: 500;
+}
+
+.filter-active {
+  color: #007bff;
+  font-weight: 500;
+}
+
+/* For better dropdown appearance */
+.filter-select option {
+  padding: 8px;
+}
+
+/* Ensure search box and filters align properly */
+.search-box {
+  flex: 1;
+  max-width: 300px;
+}
+
+@media (max-width: 768px) {
+  .filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-box {
+    max-width: 100%;
+  }
+
+  .filter-selects {
+    width: 100%;
+  }
+
+  .filter-select {
+    flex: 1;
+  }
+}
+
 /* ===================================
    RESPONSIVE DESIGN
    =================================== */
@@ -1364,15 +1390,15 @@
   .projects-grid {
     max-width: 1000px;
   }
-  
+
   .project-wrapper {
     max-width: 1000px;
   }
-  
+
   .project-tasks-full-width {
     max-width: 1000px;
   }
-  
+
   .lists-container {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1382,23 +1408,23 @@
   .projects-grid {
     max-width: 900px;
   }
-  
+
   .project-wrapper {
     max-width: 900px;
   }
-  
+
   .project-tasks-full-width {
     max-width: 900px;
   }
-  
+
   .lists-container {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .task-options-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .add-btn {
     grid-column: span 2;
   }
@@ -1408,31 +1434,31 @@
   .projects-section {
     padding: 20px;
   }
-  
+
   .projects-grid {
     max-width: 100%;
   }
-  
+
   .project-wrapper {
     max-width: 100%;
   }
-  
+
   .project-tasks-full-width {
     max-width: 100%;
   }
-  
+
   .lists-container {
     grid-template-columns: 1fr;
   }
-  
+
   .task-options-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .add-btn {
     grid-column: span 1;
   }
-  
+
   .project-tasks-container {
     padding: 20px;
   }
@@ -1442,33 +1468,33 @@
   .quick-stats {
     grid-template-columns: 1fr;
   }
-  
+
   .view-toggle {
     width: 100%;
     flex-direction: column;
   }
-  
+
   .view-btn {
     width: 100%;
     text-align: center;
   }
-  
+
   .welcome-title {
     font-size: 1.5rem;
   }
-  
+
   .section-title {
     font-size: 1.4rem;
   }
-  
+
   .project-card {
     padding: 16px;
   }
-  
+
   .project-name {
     font-size: 1.2rem;
   }
-  
+
   .project-tasks-container {
     padding: 15px;
   }
