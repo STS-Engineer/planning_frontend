@@ -462,6 +462,19 @@
   height: fit-content;
 }
 
+.project-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Move Validate button to top-right corner */
+.project-actions .validate-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+}
 
 .project-action-btn.delete-btn:hover {
   background: #fed7d7;
@@ -1352,6 +1365,68 @@
   color: #007bff;
   font-weight: 500;
 }
+
+.project-action-btn {
+  position: relative;
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.validate-btn {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #ffffff;
+}
+
+
+/* ✨ Hover effect */
+.validate-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 14px 28px rgba(34, 197, 94, 0.35);
+}
+
+/* 🖱️ Active click */
+.validate-btn:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 6px 14px rgba(34, 197, 94, 0.25);
+}
+
+/* ⛔ Disabled state */
+.validate-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  background: linear-gradient(135deg, #86efac, #4ade80);
+  box-shadow: none;
+}
+
+/* ⏳ Loading animation */
+.validate-btn:disabled::after {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-left: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 
 /* For better dropdown appearance */
 .filter-select option {
