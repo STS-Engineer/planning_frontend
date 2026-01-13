@@ -1,3 +1,5 @@
+
+
 // src/services/api.js
 const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter';
 
@@ -441,7 +443,7 @@ class ApiService {
 
   async getProjectTimeline(projectId) {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/statistics/project/${projectId}/timeline`, {
         method: 'GET',
         headers: {
@@ -461,7 +463,7 @@ class ApiService {
 
   async getAllProjectsTimeline() {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/statistics/timeline/aggregated', {
         method: 'GET',
         headers: {
@@ -479,12 +481,31 @@ class ApiService {
     }
   }
 
+  // In your ApiService.js
+  async updateProjectStatus(projectId, status) {
+    const token = localStorage.getItem('accessToken');
+
+    const response = await fetch(
+      `https://plan-back.azurewebsites.net/ajouter/projects/${projectId}/status`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status })
+      }
+    );
+
+    return await response.json();
+  }
+
 
   // Add this method to your ApiService class in api.js
   async getMemberTimeline(memberId) {
     try {
       console.log(`📊 Fetching member timeline for member: ${memberId}`);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/statistics/member/${memberId}/timeline`, {
         method: 'GET',
         headers: {
