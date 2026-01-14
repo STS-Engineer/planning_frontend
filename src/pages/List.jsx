@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import Card from './Card';
 import './List.css';
 
-const List = ({ list, onDeleteTask, onCardMove }) => {
+const List = ({ list, onDeleteTask, onCardMove, onEditTask }) => { // Added onEditTask
   const [newCardTitle, setNewCardTitle] = useState('');
   const [isAddingCard, setIsAddingCard] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const addCard = () => {
     if (!newCardTitle.trim()) return;
@@ -27,10 +28,17 @@ const List = ({ list, onDeleteTask, onCardMove }) => {
 
   const handleDragOver = (e) => {
     e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
+    setIsDragOver(false);
     const cardId = parseInt(e.dataTransfer.getData('cardId'));
     const fromListId = parseInt(e.dataTransfer.getData('fromListId'));
     
@@ -41,24 +49,38 @@ const List = ({ list, onDeleteTask, onCardMove }) => {
 
   return (
     <div 
-      className="list"
+      className={`list ${isDragOver ? 'drag-over' : ''}`}
       onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       <div className="list-header">
         <h3 className="list-title">{list.title}</h3>
+        <span className="card-count">({list.cards.length})</span>
         <button className="list-menu-btn">⋯</button>
       </div>
 
-      <div className="cards-container">
-        {list.cards.map(card => (
-          <Card
-            key={card.id}
-            card={card}
-            listId={list.id}
-            onDeleteTask={onDeleteTask}  
-          />
-        ))}
+      {/* Scrollable cards container */}
+      <div className="cards-scroll-container">
+        <div className="cards-container">
+          {list.cards.map(card => (
+            <Card
+              key={card.id}
+              card={card}
+              listId={list.id}
+              onDeleteTask={onDeleteTask}
+              onEditTask={onEditTask} // Pass edit function
+            />
+          ))}
+          
+          {/* Empty state when no cards */}
+          {list.cards.length === 0 && (
+            <div className="empty-list-state">
+              <p>No tasks here yet</p>
+              <span className="empty-icon">📝</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {isAddingCard ? (
