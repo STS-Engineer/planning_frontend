@@ -6,11 +6,13 @@
   padding: 16px;
   width: 280px;
   min-height: 200px;
+  max-height: 80vh; /* Limit maximum height */
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: hidden; /* Prevent container scrolling */
 }
 
 .list-header {
@@ -18,6 +20,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0 4px;
+  flex-shrink: 0; /* Prevent header from shrinking */
 }
 
 .list-title {
@@ -26,10 +29,22 @@
   color: #172b4d;
   margin: 0;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .list-title:hover {
   color: #0055cc;
+}
+
+.card-count {
+  font-size: 14px;
+  color: #5e6c84;
+  background: rgba(9, 30, 66, 0.08);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
 }
 
 .list-menu-btn {
@@ -48,11 +63,66 @@
   color: #172b4d;
 }
 
+/* Scrollable cards container */
+.cards-scroll-container {
+  flex: 1; /* Take available space */
+  overflow: hidden; /* Hide overflow from container */
+  min-height: 40px;
+}
+
 .cards-container {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 40px;
+  height: 100%; /* Fill container */
+  overflow-y: auto; /* Enable vertical scrolling */
+  padding-right: 4px; /* Space for scrollbar */
+  padding-bottom: 4px;
+}
+
+/* Custom scrollbar for cards container */
+.cards-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cards-container::-webkit-scrollbar-track {
+  background: rgba(9, 30, 66, 0.04);
+  border-radius: 4px;
+}
+
+.cards-container::-webkit-scrollbar-thumb {
+  background: rgba(9, 30, 66, 0.15);
+  border-radius: 4px;
+}
+
+.cards-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(9, 30, 66, 0.25);
+}
+
+/* Empty state */
+.empty-list-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #5e6c84;
+  text-align: center;
+  font-style: italic;
+  min-height: 60px;
+  background: rgba(9, 30, 66, 0.02);
+  border-radius: 8px;
+  border: 2px dashed rgba(9, 30, 66, 0.1);
+}
+
+.empty-list-state p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.empty-icon {
+  font-size: 20px;
+  opacity: 0.6;
 }
 
 /* Add Card Styles */
@@ -69,6 +139,8 @@
   transition: all 0.3s ease;
   font-size: 14px;
   font-weight: 500;
+  flex-shrink: 0; /* Prevent button from shrinking */
+  margin-top: auto; /* Push to bottom */
 }
 
 .add-card-btn:hover {
@@ -85,6 +157,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-shrink: 0; /* Prevent form from shrinking */
+  margin-top: auto; /* Push to bottom */
 }
 
 .card-input {
@@ -151,4 +225,12 @@
 .list.drag-over {
   background: rgba(0, 121, 191, 0.1);
   border: 2px dashed #0079bf;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .list {
+    width: 100%;
+    max-height: 60vh;
+  }
 }
