@@ -57,6 +57,77 @@ const Board = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPerson, setFilterPerson] = useState('all'); // Add this line
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showEditProjectModal, setShowEditProjectModal] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+
+  const [editProjectData, setEditProjectData] = useState({
+    name: '',
+    startDate: '',
+    endDate: '',
+    comment: '',
+    teamMembers: []
+  });
+
+
+  const handleEditProject = async (project) => {
+    setEditingProject(project);
+
+    // Load members for checkbox list
+    await loadMembers();
+
+    setEditProjectData({
+      name: project['project-name'],
+      startDate: project['start-date'] || '',
+      endDate: project['end-date'] || '',
+      comment: project.comment || '',
+      teamMembers: project.members || []
+    });
+
+    setShowEditProjectModal(true);
+  };
+
+
+  const saveProjectEdits = async () => {
+    if (!editProjectData.name.trim()) {
+      toast.error('Project name is required');
+      return;
+    }
+
+    try {
+      await ApiService.updateProject(editingProject.project_id, {
+        project_name: editProjectData.name,
+        start_date: editProjectData.startDate,
+        end_date: editProjectData.endDate,
+        comment: editProjectData.comment,
+        members: editProjectData.teamMembers.map(m => m.id)
+      });
+
+      // Update UI instantly
+      setProjects(prev =>
+        prev.map(p =>
+          p.project_id === editingProject.project_id
+            ? {
+              ...p,
+              'project-name': editProjectData.name,
+              'start-date': editProjectData.startDate,
+              'end-date': editProjectData.endDate,
+              comment: editProjectData.comment,
+              members: editProjectData.teamMembers
+            }
+            : p
+        )
+      );
+
+      setShowEditProjectModal(false);
+      setEditingProject(null);
+
+      toast.success('Project updated successfully!');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to update project');
+    }
+  };
+
 
   const loadAllProjectsStatistics = async () => {
     try {
@@ -852,7 +923,7 @@ const Board = () => {
                                   setLists(getInitialBoardStructure());
                                 }}
                               >
-                                ← Back to Projects
+                                Back to Projects
                               </button>
                             </div>
 
@@ -1100,40 +1171,56 @@ const Board = () => {
                                 {project.status || 'active'}
                               </span>
 
-                              {/* Validation button (visible to admin and project members) */}
+                              {/* Validation and Edit buttons group - placed together */}
                               {(user?.role === 'ADMIN' || project.members?.some(m => m.id === user?.id)) &&
                                 project.status !== 'validated' && project.status !== 'archived' && (
-                                  <button
-                                    className="project-action-btn validate-btn"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      if (window.confirm(`Mark "${project['project-name']}" as validated?`)) {
-                                        try {
-                                          setUpdatingStatus(true);
-                                          await ApiService.updateProjectStatus(project.project_id, 'validated');
+                                  <div className="action-buttons-group">
+                                    {user?.role === 'ADMIN' && (
+                                      <button
+                                        className="project-action-btn edit-project-btn"
+                                        title="Edit Project"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditProject(project);
+                                        }}
+                                      >
+                                        ✏️
+                                      </button>
+                                    )}
 
-                                          // Update local state
-                                          setProjects(prev => prev.map(p =>
-                                            p.project_id === project.project_id
-                                              ? { ...p, status: 'validated' }
-                                              : p
-                                          ));
+                                    <button
+                                      className="project-action-btn validate-btn"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`Mark "${project['project-name']}" as validated?`)) {
+                                          try {
+                                            setUpdatingStatus(true);
+                                            await ApiService.updateProjectStatus(project.project_id, 'validated');
 
-                                          toast.success('Project validated successfully!');
-                                        } catch (error) {
-                                          console.error('Failed to validate project:', error);
-                                          toast.error('Failed to validate project');
-                                        } finally {
-                                          setUpdatingStatus(false);
+                                            // Update local state
+                                            setProjects(prev => prev.map(p =>
+                                              p.project_id === project.project_id
+                                                ? { ...p, status: 'validated' }
+                                                : p
+                                            ));
+
+                                            toast.success('Project validated successfully!');
+                                          } catch (error) {
+                                            console.error('Failed to validate project:', error);
+                                            toast.error('Failed to validate project');
+                                          } finally {
+                                            setUpdatingStatus(false);
+                                          }
                                         }
-                                      }
-                                    }}
-                                    disabled={updatingStatus}
-                                    title="Validate Project"
-                                  >
-                                    {updatingStatus ? 'Validating...' : 'Validate'}
-                                  </button>
+                                      }}
+                                      disabled={updatingStatus}
+                                      title="Validate Project"
+                                    >
+                                      {updatingStatus ? 'Validating...' : 'Validate'}
+                                    </button>
+                                  </div>
                                 )}
+
                               {/* Other action buttons */}
                               <button className="project-action-btn" title="Quick Actions">⚡</button>
 
@@ -1407,6 +1494,114 @@ const Board = () => {
           </div>
         </div>
       )}
+
+      {showEditProjectModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Edit Project</h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowEditProjectModal(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Project Name *</label>
+                <input
+                  type="text"
+                  value={editProjectData.name}
+                  onChange={(e) =>
+                    setEditProjectData(prev => ({ ...prev, name: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start Date</label>
+                  <input
+                    type="date"
+                    value={editProjectData.startDate}
+                    onChange={(e) =>
+                      setEditProjectData(prev => ({ ...prev, startDate: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>End Date</label>
+                  <input
+                    type="date"
+                    value={editProjectData.endDate}
+                    onChange={(e) =>
+                      setEditProjectData(prev => ({ ...prev, endDate: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Team Members</label>
+                <div className="team-members-section">
+                  {members.map(member => (
+                    <label key={member.id} className="member-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={editProjectData.teamMembers.some(m => m.id === member.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setEditProjectData(prev => ({
+                              ...prev,
+                              teamMembers: [...prev.teamMembers, member]
+                            }));
+                          } else {
+                            setEditProjectData(prev => ({
+                              ...prev,
+                              teamMembers: prev.teamMembers.filter(m => m.id !== member.id)
+                            }));
+                          }
+                        }}
+                      />
+                      <span>{member.email.split('@')[0]}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={editProjectData.comment}
+                  onChange={(e) =>
+                    setEditProjectData(prev => ({ ...prev, comment: e.target.value }))
+                  }
+                  rows="3"
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowEditProjectModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={saveProjectEdits}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
