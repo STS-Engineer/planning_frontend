@@ -657,135 +657,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
         </div>
     );
 
-    // Add these functions right before the loadTimelineData function:
-
-    // Helper function to generate project insights from timeline data
-    const generateProjectInsightsFromData = (data) => {
-        if (!data || data.length === 0) {
-            return {
-                currentProgress: 0,
-                averageDailyProgress: 0,
-                peakProgressDay: null,
-                progressTrend: 0,
-                productivityScore: 0,
-                consistencyScore: 0
-            };
-        }
-
-        const progressValues = data.map(d => d.progress || 0);
-        const taskValues = data.map(d => d.dailyCompletedTasks || 0);
-
-        // Find peak progress day
-        let peakProgressDay = { date: '', progressIncrease: 0 };
-        for (let i = 1; i < data.length; i++) {
-            const progressIncrease = (data[i].progress || 0) - (data[i - 1].progress || 0);
-            if (progressIncrease > peakProgressDay.progressIncrease) {
-                peakProgressDay = {
-                    date: data[i].date || '',
-                    progressIncrease: progressIncrease
-                };
-            }
-        }
-
-        // Calculate progress trend
-        const recentWeek = data.slice(-7);
-        const firstProgress = recentWeek[0]?.progress || 0;
-        const lastProgress = recentWeek[recentWeek.length - 1]?.progress || 0;
-        const progressTrend = ((lastProgress - firstProgress) / Math.max(1, firstProgress)) * 100;
-
-        // Calculate average daily progress
-        const progressChanges = [];
-        for (let i = 1; i < progressValues.length; i++) {
-            progressChanges.push(progressValues[i] - progressValues[i - 1]);
-        }
-        const averageDailyProgress = progressChanges.length > 0
-            ? progressChanges.reduce((a, b) => a + b, 0) / progressChanges.length
-            : 0;
-
-        // Calculate productivity score
-        const totalCompletedTasks = taskValues.reduce((a, b) => a + b, 0);
-        const productivityScore = totalCompletedTasks / data.length;
-
-        // Calculate consistency
-        const avgProgress = progressValues.reduce((a, b) => a + b, 0) / progressValues.length;
-        const squaredDiffs = progressValues.map(value => Math.pow(value - avgProgress, 2));
-        const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / squaredDiffs.length;
-        const consistencyScore = Math.max(0, 100 - Math.sqrt(avgSquaredDiff) * 2);
-
-        return {
-            currentProgress: data[data.length - 1]?.progress || 0,
-            averageDailyProgress: parseFloat(averageDailyProgress.toFixed(1)),
-            peakProgressDay: peakProgressDay.progressIncrease > 0 ? peakProgressDay : null,
-            progressTrend: parseFloat(progressTrend.toFixed(1)),
-            productivityScore: parseFloat(productivityScore.toFixed(1)),
-            consistencyScore: parseFloat(consistencyScore.toFixed(1)),
-            teamEngagement: parseFloat((data[data.length - 1]?.activeMembers / Math.max(1, selectedProject?.totalMembers || 3) * 100).toFixed(1)),
-            completionVelocity: parseFloat((averageDailyProgress * 7).toFixed(1))
-        };
-    };
-
-    // Helper function to generate all projects insights from timeline data
-    const generateAllProjectsInsightsFromData = (data) => {
-        if (!data || data.length === 0) {
-            return {
-                overallProgress: 0,
-                averageDailyProductivity: 0,
-                mostProductiveDay: null,
-                progressTrend: 0,
-                averageActiveProjects: 0,
-                teamEfficiency: 0
-            };
-        }
-
-        const progressValues = data.map(d => d.totalProgress || 0);
-        const productivityValues = data.map(d => d.productivity || 0);
-        const activeProjectValues = data.map(d => d.activeProjects || 0);
-
-        // Find most productive day
-        let mostProductiveDay = { date: '', productivity: 0 };
-        data.forEach(day => {
-            const productivity = day.productivity || 0;
-            if (productivity > mostProductiveDay.productivity) {
-                mostProductiveDay = {
-                    date: day.date || '',
-                    productivity: productivity
-                };
-            }
-        });
-
-        // Calculate progress trend
-        const recentWeek = data.slice(-7);
-        const firstProgress = recentWeek[0]?.totalProgress || 0;
-        const lastProgress = recentWeek[recentWeek.length - 1]?.totalProgress || 0;
-        const progressTrend = ((lastProgress - firstProgress) / Math.max(1, firstProgress)) * 100;
-
-        // Calculate averages
-        const averageDailyProductivity = productivityValues.reduce((a, b) => a + b, 0) / productivityValues.length;
-        const averageActiveProjects = activeProjectValues.reduce((a, b) => a + b, 0) / activeProjectValues.length;
-
-        // Calculate team efficiency
-        const teamEfficiency = data[data.length - 1]?.teamEfficiency || 0;
-
-        // Calculate project distribution
-        const maxProjects = Math.max(...activeProjectValues);
-        const minProjects = Math.min(...activeProjectValues);
-        const projectStability = parseFloat(((averageActiveProjects / Math.max(1, maxProjects)) * 100).toFixed(1));
-
-        return {
-            overallProgress: data[data.length - 1]?.totalProgress || 0,
-            averageDailyProductivity: parseFloat(averageDailyProductivity.toFixed(1)),
-            mostProductiveDay: mostProductiveDay.productivity > 0 ? mostProductiveDay : null,
-            progressTrend: parseFloat(progressTrend.toFixed(1)),
-            averageActiveProjects: parseFloat(averageActiveProjects.toFixed(1)),
-            teamEfficiency: parseFloat(teamEfficiency.toFixed(1)),
-            projectStability: projectStability,
-            peakProductivity: Math.max(...productivityValues),
-            totalTaskThroughput: parseFloat((data.reduce((sum, day) => sum + (day.dailyCompletedTasks || 0), 0)).toFixed(0)),
-            teamProductivityTrend: parseFloat(((productivityValues[productivityValues.length - 1] - productivityValues[0]) / Math.max(1, productivityValues[0]) * 100).toFixed(1))
-        };
-    };
-
-    // Add these new functions with your other helper functions
+// Add these new functions with your other helper functions
 
     const calculateMemberProductivity = () => {
         if (timelineData.length === 0) return 0;
@@ -810,13 +682,6 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             (day.dailyCompletedTasks && day.dailyCompletedTasks > 0)
         ).length;
         return daysWithActivity;
-    };
-
-    const calculateMemberAvgTasksPerDay = () => {
-        if (timelineData.length === 0) return 0;
-        const totalTasks = timelineData.reduce((acc, day) =>
-            acc + (day.memberTasksCompleted || 0) + (day.dailyCompletedTasks || 0), 0);
-        return (totalTasks / timelineData.length).toFixed(1);
     };
 
     const calculateAvgTasksPerDay = (totalTasks, daysElapsed) => {
@@ -2844,6 +2709,11 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                         </div>
                     </div>
                 )}
+
+                {/* Timeline Evolution Chart - ADD THIS RIGHT AFTER THE COMPARISON CHART */}
+                {/* In your return statement, update this line: */}
+                <TimelineChart memberId={selectedMember} />
+
             </div>
         </div>
     );
