@@ -433,13 +433,6 @@
   font-size: 0.6rem;
 }
 
-
-
-.project-action-btn:hover {
-  background: #edf2f7;
-  transform: scale(1.1);
-}
-
 .project-card {
   width: 100%;
   background: white;
