@@ -1188,36 +1188,38 @@ const Board = () => {
                                       </button>
                                     )}
 
-                                    <button
-                                      className="project-action-btn validate-btn"
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (window.confirm(`Mark "${project['project-name']}" as validated?`)) {
-                                          try {
-                                            setUpdatingStatus(true);
-                                            await ApiService.updateProjectStatus(project.project_id, 'validated');
+                                                  {user.role === 'ADMIN' && (
+                                        <button
+                                          className="project-action-btn validate-btn"
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm(`Mark "${project['project-name']}" as validated?`)) {
+                                              try {
+                                                setUpdatingStatus(true);
+                                                await ApiService.updateProjectStatus(project.project_id, 'validated');
 
-                                            // Update local state
-                                            setProjects(prev => prev.map(p =>
-                                              p.project_id === project.project_id
-                                                ? { ...p, status: 'validated' }
-                                                : p
-                                            ));
+                                                // Update local state
+                                                setProjects(prev => prev.map(p =>
+                                                  p.project_id === project.project_id
+                                                    ? { ...p, status: 'validated' }
+                                                    : p
+                                                ));
 
-                                            toast.success('Project validated successfully!');
-                                          } catch (error) {
-                                            console.error('Failed to validate project:', error);
-                                            toast.error('Failed to validate project');
-                                          } finally {
-                                            setUpdatingStatus(false);
-                                          }
-                                        }
-                                      }}
-                                      disabled={updatingStatus}
-                                      title="Validate Project"
-                                    >
-                                      {updatingStatus ? 'Validating...' : 'Validate'}
-                                    </button>
+                                                toast.success('Project validated successfully!');
+                                              } catch (error) {
+                                                console.error('Failed to validate project:', error);
+                                                toast.error('Failed to validate project');
+                                              } finally {
+                                                setUpdatingStatus(false);
+                                              }
+                                            }
+                                          }}
+                                          disabled={updatingStatus}
+                                          title="Validate Project"
+                                        >
+                                          {updatingStatus ? 'Validating...' : 'Validate'}
+                                        </button>
+                                    )}
                                   </div>
                                 )}
 
