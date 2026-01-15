@@ -40,6 +40,7 @@ const Board = () => {
     enableNotifications: true
   });
   const [creatingProject, setCreatingProject] = useState(false);
+  const [updatingProject, setUpdatingProject] = useState(false); // Add this line
   const [activeView, setActiveView] = useState('board');
   const [members, setMembers] = useState([]);
   const [showEditTaskModal, setShowEditTaskModal] = useState(false);
@@ -87,6 +88,7 @@ const Board = () => {
   };
 
 
+  // 3. Update the saveProjectEdits function to show spinner
   const saveProjectEdits = async () => {
     if (!editProjectData.name.trim()) {
       toast.error('Project name is required');
@@ -94,6 +96,8 @@ const Board = () => {
     }
 
     try {
+      setUpdatingProject(true); // Show spinner on save changes button
+
       await ApiService.updateProject(editingProject.project_id, {
         project_name: editProjectData.name,
         start_date: editProjectData.startDate,
@@ -125,8 +129,11 @@ const Board = () => {
     } catch (error) {
       console.error(error);
       toast.error('Failed to update project');
+    } finally {
+      setUpdatingProject(false); // Hide spinner
     }
   };
+
 
 
   const loadAllProjectsStatistics = async () => {
@@ -1187,39 +1194,39 @@ const Board = () => {
                                         ✏️
                                       </button>
                                     )}
+                                    {user.role === 'ADMIN' && (
+                                      <button
+                                        className="project-action-btn validate-btn"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (window.confirm(`Mark "${project['project-name']}" as validated?`)) {
+                                            try {
+                                              setUpdatingStatus(true);
+                                              await ApiService.updateProjectStatus(project.project_id, 'validated');
 
-                                                  {user.role === 'ADMIN' && (
-                                        <button
-                                          className="project-action-btn validate-btn"
-                                          onClick={async (e) => {
-                                            e.stopPropagation();
-                                            if (window.confirm(`Mark "${project['project-name']}" as validated?`)) {
-                                              try {
-                                                setUpdatingStatus(true);
-                                                await ApiService.updateProjectStatus(project.project_id, 'validated');
+                                              // Update local state
+                                              setProjects(prev => prev.map(p =>
+                                                p.project_id === project.project_id
+                                                  ? { ...p, status: 'validated' }
+                                                  : p
+                                              ));
 
-                                                // Update local state
-                                                setProjects(prev => prev.map(p =>
-                                                  p.project_id === project.project_id
-                                                    ? { ...p, status: 'validated' }
-                                                    : p
-                                                ));
-
-                                                toast.success('Project validated successfully!');
-                                              } catch (error) {
-                                                console.error('Failed to validate project:', error);
-                                                toast.error('Failed to validate project');
-                                              } finally {
-                                                setUpdatingStatus(false);
-                                              }
+                                              toast.success('Project validated successfully!');
+                                            } catch (error) {
+                                              console.error('Failed to validate project:', error);
+                                              toast.error('Failed to validate project');
+                                            } finally {
+                                              setUpdatingStatus(false);
                                             }
-                                          }}
-                                          disabled={updatingStatus}
-                                          title="Validate Project"
-                                        >
-                                          {updatingStatus ? 'Validating...' : 'Validate'}
-                                        </button>
+                                          }
+                                        }}
+                                        disabled={updatingStatus}
+                                        title="Validate Project"
+                                      >
+                                        {updatingStatus ? 'Validating...' : 'Validate'}
+                                      </button>
                                     )}
+
                                   </div>
                                 )}
 
@@ -1385,7 +1392,10 @@ const Board = () => {
                 disabled={!newProject.name.trim() || creatingProject}
               >
                 {creatingProject ? (
-                  <span className="btn-icon spinner"></span>
+                  <>
+                    <span className="btn-spinner"></span>
+                    Creating...
+                  </>
                 ) : (
                   <>
                     <span className="btn-icon">🚀</span>
@@ -1393,6 +1403,7 @@ const Board = () => {
                   </>
                 )}
               </button>
+
             </div>
           </div>
         </div>
@@ -1596,8 +1607,16 @@ const Board = () => {
               <button
                 className="btn-primary"
                 onClick={saveProjectEdits}
+                disabled={updatingProject}
               >
-                Save Changes
+                {updatingProject ? (
+                  <>
+                    <span className="btn-spinner"></span>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
               </button>
             </div>
           </div>
