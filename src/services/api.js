@@ -184,6 +184,13 @@ class ApiService {
     });
   }
 
+  async updateTask(id, taskData) {
+    return this.request(`/tasks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(taskData),
+    });
+  }
+
   async deleteProject(id) {
     return this.request(`/projects/${id}`, {
       method: 'DELETE',
