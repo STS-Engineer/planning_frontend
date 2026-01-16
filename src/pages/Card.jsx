@@ -2,7 +2,7 @@
 import React from 'react';
 import './Card.css';
 
-const Card = ({ card, onDeleteTask, listId }) => {
+const Card = ({ card, onDeleteTask, onEditTask, listId }) => {
   const handleDragStart = (e) => {
     e.dataTransfer.setData('cardId', card.id);
     e.dataTransfer.setData('fromListId', listId);
@@ -24,7 +24,7 @@ const Card = ({ card, onDeleteTask, listId }) => {
   // Helper function to get and format the email
   const getFormattedAssigneeName = () => {
     let email = '';
-    
+
     // Try different possible locations for email
     if (card.email) email = card.email;
     else if (card.assigneeInfo?.email) email = card.assigneeInfo.email;
@@ -38,7 +38,7 @@ const Card = ({ card, onDeleteTask, listId }) => {
 
     // Split by "@" and take the part before it
     const usernamePart = email.split('@')[0];
-    
+
     // Replace dots with spaces and capitalize first letter of each word
     const formattedName = usernamePart
       .replace(/\./g, ' ') // Replace all dots with spaces
@@ -82,15 +82,9 @@ const Card = ({ card, onDeleteTask, listId }) => {
 
       <div className="card-header">
         <h4 className="card-title">{card.title}</h4>
-        <button
-          className="card-delete-btn"
-          onClick={() => onDeleteTask(card.databaseId)}
-          title="Delete task"
-        >
-          🗑️
-        </button>
+ 
       </div>
-      
+
       {card.description && (
         <div className="card-description">
           {card.description}
@@ -106,8 +100,20 @@ const Card = ({ card, onDeleteTask, listId }) => {
         )}
 
         <div className="card-actions">
-          <button className="card-action-btn">💬</button>
-          <button className="card-action-btn">📎</button>
+            <button
+          className="card-edit-btn"
+          onClick={() => onEditTask && onEditTask(card)}
+          title="Edit task"
+        >
+          ✏️
+        </button>
+        <button
+          className="card-delete-btn"
+          onClick={() => onDeleteTask(card.databaseId)}
+          title="Delete task"
+        >
+          🗑️
+        </button>
         </div>
       </div>
     </div>
