@@ -82,41 +82,6 @@ const List = ({ list, onDeleteTask, onCardMove, onEditTask }) => { // Added onEd
           )}
         </div>
       </div>
-
-      {isAddingCard ? (
-        <div className="add-card-form">
-          <input
-            type="text"
-            placeholder="Saisissez le titre de cette carte..."
-            value={newCardTitle}
-            onChange={(e) => setNewCardTitle(e.target.value)}
-            autoFocus
-            className="card-input"
-          />
-          <div className="add-card-actions">
-            <button 
-              className="add-card-submit"
-              onClick={addCard}
-            >
-              Ajouter une carte
-            </button>
-            <button 
-              className="cancel-add-card"
-              onClick={() => setIsAddingCard(false)}
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button 
-          className="add-card-btn"
-          onClick={() => setIsAddingCard(true)}
-        >
-          <span className="add-card-icon">+</span>
-          Ajouter une carte
-        </button>
-      )}
     </div>
   );
 };
