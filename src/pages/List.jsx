@@ -82,8 +82,11 @@ const List = ({ list, onDeleteTask, onCardMove, onEditTask }) => { // Added onEd
           )}
         </div>
       </div>
+<<<<<<< HEAD
 
   
+=======
+>>>>>>> fd8fad8296acdef2a663736335c32e5e936569eb
     </div>
   );
 };

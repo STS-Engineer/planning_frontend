@@ -72,7 +72,7 @@ export default function SignUp() {
 
     try {
       const response = await axios.post(
-        "http://localhost:4000/ajouter/register",
+        "https://plan-back.azurewebsites.net/ajouter/register",
         formData
       );
 

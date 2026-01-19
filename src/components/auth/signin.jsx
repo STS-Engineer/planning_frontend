@@ -158,18 +158,12 @@ const SignIn = () => {
           </button>
         </form>
 
-        {/* Sign Up Link */}
-        <div className="signup-link">
-          Don't have an account?{' '}
-          <Link to="/register" className="link">
-            Sign up
-          </Link>
-        </div>
+        
       </div>
 
       {/* Footer */}
       <div className="signin-footer">
-        © 2024 TaskFlow. All rights reserved.
+        IA AND SOFTWARE TEAM
       </div>
     </div>
   );
