@@ -536,14 +536,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
 
                         {/* Timeline Legend */}
                         <div style={{
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            marginTop: '20px',
-                            fontSize: '12px',
-                            color: '#666',
-                            gap: '20px',
-                            flexWrap: 'wrap'
+                            display: 'flex', justifyContent: 'center', alignItems: 'center',
+                            marginTop: '20px', fontSize: '12px', color: '#666', gap: '20px', flexWrap: 'wrap'
                         }}>
                             {isMemberView ? (
                                 <>
@@ -552,16 +546,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                         <span>Member Progress</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                        <div style={{ width: '12px', height: '2px', background: '#4ecdc4' }}></div>
-                                        <span>Tasks Completed</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                        <div style={{ width: '12px', height: '12px', background: '#a8e6cf', borderRadius: '2px' }}></div>
-                                        <span>Daily Completed</span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                         <div style={{ width: '2px', height: '12px', background: '#ff6b6b' }}></div>
-                                        <span>Member Productivity</span>
+                                        <span>Team Productivity</span>
                                     </div>
                                 </>
                             ) : (
@@ -571,21 +557,42 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                         <span>{isSingleProject ? 'Project Progress' : 'Overall Progress'}</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                        <div style={{ width: '12px', height: '2px', background: '#4ecdc4' }}></div>
-                                        <span>Cumulative Completed Tasks</span>
+                                        <div style={{ width: '12px', height: '2px', background: '#9d4edd', borderStyle: 'dashed' }}></div>
+                                        <span>Team Productivity</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                        <div style={{ width: '12px', height: '12px', background: '#ffd93d', borderRadius: '2px' }}></div>
-                                        <span>Daily New Tasks</span>
+                                        <div style={{ width: '12px', height: '12px', background: '#4ecdc4', borderRadius: '2px' }}></div>
+                                        <span>Weekly Completed Tasks</span>
                                     </div>
-                                    {!isSingleProject && (
+                                    {isSingleProject ? (
+                                        <>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                <div style={{ width: '12px', height: '12px', background: '#ffd93d', borderRadius: '2px' }}></div>
+                                                <span>In Progress</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                <div style={{ width: '12px', height: '12px', background: '#ff6b6b', borderRadius: '2px' }}></div>
+                                                <span>To Do</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                <div style={{ width: '8px', height: '8px', background: '#764ba2', borderRadius: '50%' }}></div>
+                                                <span>Active Team Members</span>
+                                            </div>
+                                        </>
+                                    ) : (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                            <div style={{ width: '2px', height: '12px', background: '#9d4edd' }}></div>
-                                            <span>Team Productivity</span>
+                                            <div style={{ width: '12px', height: '2px', background: '#ff6b6b' }}></div>
+                                            <span>Active Projects</span>
                                         </div>
                                     )}
                                 </>
                             )}
+                            <div style={{
+                                marginLeft: '10px', padding: '4px 8px', background: '#f0f0f0',
+                                borderRadius: '4px', fontSize: '11px', fontStyle: 'italic'
+                            }}>
+                                📅 Weekly aggregated data by month
+                            </div>
                         </div>
                     </>
                 )}
@@ -657,7 +664,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
         </div>
     );
 
-// Add these new functions with your other helper functions
+    // Add these new functions with your other helper functions
 
     const calculateMemberProductivity = () => {
         if (timelineData.length === 0) return 0;
@@ -1232,207 +1239,203 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
         };
     };
 
+
+    // Helper function to get week number
+    const getWeekNumber = (date) => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+        const yearStart = new Date(d.getFullYear(), 0, 1);
+        const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        return weekNo;
+    };
+
+    // Helper function to format month-week label
+    const getMonthWeekLabel = (date) => {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const month = monthNames[date.getMonth()];
+        const weekOfMonth = Math.ceil(date.getDate() / 7);
+        return `${month} W${weekOfMonth}`;
+    };
+
+
+
     // Updated sample data generator with member support
-    // Replace generateRealisticTimelineData function with this:
     const generateRealisticTimelineData = (memberId = null) => {
         const now = new Date();
         const data = [];
         const isSingleProject = selectedProject?.project_id;
         const isMemberView = memberId && memberId !== 'all';
 
-        // Use a deterministic seed based on project/member ID for consistent data
-        const getDeterministicValue = (base, index, maxVariation = 0.2) => {
-            const seed = (selectedProject?.project_id || memberId || 'all').toString();
-            const seedNumber = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            const variation = Math.sin(index * 0.5 + seedNumber) * maxVariation;
-            return base * (1 + variation);
-        };
-
         if (isSingleProject) {
-            // Get the actual project from filteredProjectsKPI
             const project = filteredProjectsKPI[0];
             if (!project) return [];
 
             const {
                 totalTasks = 0,
                 doneTasks = 0,
-                todoTasks = 0,
-                inProgressTasks = 0,
                 daysElapsed = Math.max(project.daysElapsed || 0, 1),
-                projectDuration = project.projectDuration || 90,
                 completionRate = project.completionRate || 0,
                 totalMembers = project.totalMembers || 1
             } = project;
 
-            // Generate timeline based on actual completion rate and tasks
-            for (let i = Math.min(daysElapsed, 60); i >= 0; i--) {
+            const weeklyData = {};
+
+            for (let i = Math.min(daysElapsed, 90); i >= 0; i--) {
                 const date = new Date();
                 date.setDate(now.getDate() - i);
+                const weekKey = getMonthWeekLabel(date);
 
-                const dateStr = date.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric'
-                });
-
-                // Calculate day in project timeline (0 = start, 1 = end)
                 const projectDay = daysElapsed - i;
                 const projectProgressRatio = projectDay / Math.max(1, daysElapsed);
 
-                // Calculate cumulative progress (s-curve: slow start, faster middle, slow finish)
                 let progressCurve;
                 if (projectProgressRatio < 0.2) {
-                    // Slow start: 0-20%
                     progressCurve = 0.2 * Math.pow(projectProgressRatio / 0.2, 2);
                 } else if (projectProgressRatio < 0.8) {
-                    // Fast middle: 20-80%
                     progressCurve = 0.2 + 0.6 * ((projectProgressRatio - 0.2) / 0.6);
                 } else {
-                    // Slow finish: 80-100%
                     progressCurve = 0.8 + 0.2 * (1 - Math.pow((1 - projectProgressRatio) / 0.2, 2));
                 }
 
-                // Apply actual completion rate to the curve
                 const progress = completionRate * progressCurve;
-
-                // Calculate tasks based on progress
                 const cumulativeCompleted = Math.floor(doneTasks * progressCurve);
                 const totalSoFar = Math.floor(totalTasks * (0.3 + progressCurve * 0.7));
-
-                // Calculate daily values (deterministic based on day index)
-                const dailyVariation = Math.sin(i * 0.3) * 0.3 + Math.cos(i * 0.7) * 0.2;
-                const dailyNewTasks = Math.max(0, Math.floor(
-                    (totalTasks / Math.max(1, daysElapsed)) * (0.8 + dailyVariation)
-                ));
 
                 const dailyCompletedTasks = Math.max(0, Math.floor(
                     (doneTasks / Math.max(1, daysElapsed)) * (0.7 + Math.sin(i * 0.5) * 0.3)
                 ));
 
-                // Calculate remaining tasks distribution
                 const remaining = totalSoFar - cumulativeCompleted;
                 const todoOnDay = Math.floor(remaining * 0.6);
                 const inProgressOnDay = remaining - todoOnDay;
+                const activeMembersDay = Math.max(1, Math.floor(totalMembers * (0.5 + Math.sin(i * 0.2) * 0.3)));
+                const teamProductivity = totalSoFar > 0 ? parseFloat(((cumulativeCompleted / totalSoFar) * 100).toFixed(1)) : 0;
 
-                data.unshift({
-                    date: dateStr,
-                    progress: parseFloat(Math.min(progress, 100).toFixed(1)),
-                    tasksCompleted: cumulativeCompleted,
-                    tasksCreated: totalSoFar,
-                    dailyNewTasks: dailyNewTasks,
-                    dailyCompletedTasks: dailyCompletedTasks,
-                    activeMembers: Math.max(1, Math.floor(totalMembers * (0.5 + Math.sin(i * 0.2) * 0.3))),
-                    todoTasks: todoOnDay,
-                    inProgressTasks: inProgressOnDay,
-                    projectEfficiency: parseFloat((progress * 0.6 + (dailyCompletedTasks / Math.max(1, dailyNewTasks)) * 40).toFixed(1))
-                });
+                if (!weeklyData[weekKey]) {
+                    weeklyData[weekKey] = {
+                        date: weekKey, progress: 0, tasksCompleted: 0, totalTasks: 0,
+                        todoTasks: 0, inProgressTasks: 0, dailyCompletedTasks: 0,
+                        activeMembers: 0, teamProductivity: 0, days: 0
+                    };
+                }
+
+                weeklyData[weekKey].progress = progress;
+                weeklyData[weekKey].tasksCompleted = cumulativeCompleted;
+                weeklyData[weekKey].totalTasks = totalSoFar;
+                weeklyData[weekKey].todoTasks += todoOnDay;
+                weeklyData[weekKey].inProgressTasks += inProgressOnDay;
+                weeklyData[weekKey].dailyCompletedTasks += dailyCompletedTasks;
+                weeklyData[weekKey].activeMembers = Math.max(weeklyData[weekKey].activeMembers, activeMembersDay);
+                weeklyData[weekKey].teamProductivity = teamProductivity;
+                weeklyData[weekKey].days++;
             }
-        } else if (isMemberView) {
-            // Member view - use memberStats for realistic data
-            const memberData = memberStats || {};
-            const {
-                totalTasks = 0,
-                completedTasks = 0,
-                totalProjects = 0,
-                overallCompletionRate = 0
-            } = memberData;
 
-            // Generate 60 days of member data
-            for (let i = 60; i >= 0; i--) {
+            Object.keys(weeklyData).forEach(week => {
+                const weekData = weeklyData[week];
+                data.push({
+                    date: weekData.date,
+                    progress: parseFloat(Math.min(weekData.progress, 100).toFixed(1)),
+                    tasksCompleted: weekData.tasksCompleted,
+                    todoTasks: Math.floor(weekData.todoTasks / weekData.days),
+                    inProgressTasks: Math.floor(weekData.inProgressTasks / weekData.days),
+                    dailyCompletedTasks: Math.floor(weekData.dailyCompletedTasks / weekData.days),
+                    activeMembers: weekData.activeMembers,
+                    teamProductivity: parseFloat(weekData.teamProductivity.toFixed(1))
+                });
+            });
+        } else if (isMemberView) {
+            const memberData = memberStats || {};
+            const { totalTasks = 0, completedTasks = 0, overallCompletionRate = 0 } = memberData;
+            const weeklyData = {};
+
+            for (let i = 90; i >= 0; i--) {
                 const date = new Date();
                 date.setDate(now.getDate() - i);
-
-                const dateStr = date.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric'
-                });
-
-                // Calculate based on day index (deterministic)
-                const dayRatio = i / 60;
-
-                // Member progress curve (starts slower, accelerates)
+                const weekKey = getMonthWeekLabel(date);
+                const dayRatio = i / 90;
                 const progressCurve = 1 - Math.pow(dayRatio, 1.5);
                 const memberProgress = overallCompletionRate * progressCurve;
-
-                // Cumulative tasks (deterministic growth)
                 const cumulativeTasks = Math.floor(completedTasks * progressCurve);
-
-                // Daily completed (higher on middle days, lower on start/end)
-                const dailyPattern = Math.sin((i / 60) * Math.PI); // Sine wave pattern
-                const dailyCompleted = Math.max(0, Math.floor(
-                    (completedTasks / 60) * (0.5 + dailyPattern * 0.5)
-                ));
-
-                // Productivity based on day of week (deterministic)
+                const dailyPattern = Math.sin((i / 90) * Math.PI);
+                const dailyCompleted = Math.max(0, Math.floor((completedTasks / 90) * (0.5 + dailyPattern * 0.5)));
                 const dayOfWeek = date.getDay();
                 const weekdayFactor = (dayOfWeek >= 1 && dayOfWeek <= 5) ? 1.2 : 0.7;
                 const memberProductivity = memberProgress * weekdayFactor * (0.8 + Math.sin(i * 0.2) * 0.2);
+                const teamProductivity = totalTasks > 0 ? parseFloat(((cumulativeTasks / totalTasks) * 100).toFixed(1)) : 0;
 
-                data.unshift({
-                    date: dateStr,
-                    memberProgress: parseFloat(Math.min(memberProgress, 100).toFixed(1)),
-                    memberTasksCompleted: cumulativeTasks,
-                    dailyCompletedTasks: dailyCompleted,
-                    memberProductivity: parseFloat(Math.min(memberProductivity, 100).toFixed(1)),
-                    assignedTasks: totalTasks,
-                    activeProjects: Math.max(1, Math.floor(totalProjects * (0.4 + Math.sin(i * 0.3) * 0.3))),
-                    completionRate: parseFloat(((cumulativeTasks / Math.max(1, totalTasks)) * 100).toFixed(1))
-                });
+                if (!weeklyData[weekKey]) {
+                    weeklyData[weekKey] = {
+                        date: weekKey, memberProgress: 0, memberTasksCompleted: 0,
+                        dailyCompletedTasks: 0, memberProductivity: 0, teamProductivity: 0, days: 0
+                    };
+                }
+
+                weeklyData[weekKey].memberProgress = memberProgress;
+                weeklyData[weekKey].memberTasksCompleted = cumulativeTasks;
+                weeklyData[weekKey].dailyCompletedTasks += dailyCompleted;
+                weeklyData[weekKey].memberProductivity = Math.max(weeklyData[weekKey].memberProductivity, memberProductivity);
+                weeklyData[weekKey].teamProductivity = teamProductivity;
+                weeklyData[weekKey].days++;
             }
+
+            Object.keys(weeklyData).forEach(week => {
+                const weekData = weeklyData[week];
+                data.push({
+                    date: weekData.date,
+                    memberProgress: parseFloat(Math.min(weekData.memberProgress, 100).toFixed(1)),
+                    memberTasksCompleted: weekData.memberTasksCompleted,
+                    dailyCompletedTasks: Math.floor(weekData.dailyCompletedTasks / weekData.days),
+                    memberProductivity: parseFloat(Math.min(weekData.memberProductivity, 100).toFixed(1)),
+                    teamProductivity: parseFloat(weekData.teamProductivity.toFixed(1))
+                });
+            });
         } else {
-            // All projects view
             const totalTasks = allProjectsStats?.totalTasks || 0;
             const completedTasks = allProjectsStats?.completedTasks || 0;
             const overallCompletion = allProjectsStats?.completionRate || 0;
             const totalProjects = filteredProjectsKPI.length;
+            const weeklyData = {};
 
-            // Generate 60 days of aggregated data
-            for (let i = 60; i >= 0; i--) {
+            for (let i = 90; i >= 0; i--) {
                 const date = new Date();
                 date.setDate(now.getDate() - i);
-
-                const dateStr = date.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric'
-                });
-
-                const dayRatio = i / 60;
-
-                // Progress curve for all projects
+                const weekKey = getMonthWeekLabel(date);
+                const dayRatio = i / 90;
                 const progressCurve = 1 - Math.pow(dayRatio, 1.2);
                 const progress = overallCompletion * progressCurve;
-
-                // Cumulative values (deterministic)
                 const cumulativeCompleted = Math.floor(completedTasks * progressCurve);
-                const cumulativeTotal = Math.floor(totalTasks * (0.2 + progressCurve * 0.8));
-
-                // Daily patterns (deterministic based on day index)
-                const dailyPattern = 0.5 + Math.sin(i * 0.4) * 0.3 + Math.cos(i * 0.2) * 0.2;
-                const dailyNewTasks = Math.max(1, Math.floor(
-                    (totalTasks / 60) * dailyPattern
-                ));
-
-                const dailyCompleted = Math.max(0, Math.floor(
-                    (completedTasks / 60) * (0.4 + Math.sin(i * 0.3) * 0.3)
-                ));
-
-                // Active projects (fluctuates but deterministic)
+                const dailyCompleted = Math.max(0, Math.floor((completedTasks / 90) * (0.4 + Math.sin(i * 0.3) * 0.3)));
                 const baseActiveProjects = Math.max(1, Math.floor(totalProjects * 0.7));
-                const activeVariation = Math.sin(i * 0.2) * 0.3;
-                const activeProjects = Math.max(1, Math.floor(baseActiveProjects * (1 + activeVariation)));
+                const activeProjects = Math.max(1, Math.floor(baseActiveProjects * (1 + Math.sin(i * 0.2) * 0.3)));
+                const teamProductivity = cumulativeCompleted > 0 ? parseFloat(((cumulativeCompleted / (totalTasks * progressCurve)) * 100).toFixed(1)) : 0;
 
-                data.unshift({
-                    date: dateStr,
-                    totalProgress: parseFloat(Math.min(progress, 100).toFixed(1)),
-                    completedTasks: cumulativeCompleted,
-                    newTasks: cumulativeTotal,
-                    dailyNewTasks: dailyNewTasks,
-                    dailyCompletedTasks: dailyCompleted,
-                    activeProjects: activeProjects,
-                    activeMembers: Math.floor(activeProjects * 2.5), // ~2.5 members per project
-                    productivity: parseFloat(Math.min(progress * (0.8 + Math.sin(i * 0.2) * 0.2), 100).toFixed(1)),
-                    teamEfficiency: parseFloat((progress * 0.6 + (dailyCompleted / Math.max(1, dailyNewTasks)) * 40).toFixed(1))
-                });
+                if (!weeklyData[weekKey]) {
+                    weeklyData[weekKey] = {
+                        date: weekKey, totalProgress: 0, completedTasks: 0,
+                        dailyCompletedTasks: 0, activeProjects: 0, teamProductivity: 0, days: 0
+                    };
+                }
+
+                weeklyData[weekKey].totalProgress = progress;
+                weeklyData[weekKey].completedTasks = cumulativeCompleted;
+                weeklyData[weekKey].dailyCompletedTasks += dailyCompleted;
+                weeklyData[weekKey].activeProjects = Math.max(weeklyData[weekKey].activeProjects, activeProjects);
+                weeklyData[weekKey].teamProductivity = teamProductivity;
+                weeklyData[weekKey].days++;
             }
+
+            Object.keys(weeklyData).forEach(week => {
+                const weekData = weeklyData[week];
+                data.push({
+                    date: weekData.date,
+                    totalProgress: parseFloat(Math.min(weekData.totalProgress, 100).toFixed(1)),
+                    completedTasks: weekData.completedTasks,
+                    dailyCompletedTasks: Math.floor(weekData.dailyCompletedTasks / weekData.days),
+                    activeProjects: weekData.activeProjects,
+                    teamProductivity: parseFloat(weekData.teamProductivity.toFixed(1))
+                });
+            });
         }
 
         return data;
