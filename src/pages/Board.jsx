@@ -1179,7 +1179,7 @@ const Board = () => {
                               </span>
 
                               {/* Validation and Edit buttons group - placed together */}
-                              {(user?.role === 'ADMIN' || project.members?.some(m => m.id === user?.id)) &&
+                              {(user?.role === 'ADMIN' && user.role === 'member' || project.members?.some(m => m.id === user?.id)) &&
                                 project.status !== 'validated' && project.status !== 'archived' && (
                                   <div className="action-buttons-group">
                                     {user?.role === 'ADMIN' && (
