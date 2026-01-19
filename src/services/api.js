@@ -2,7 +2,7 @@
 
 // src/services/api.js
 
-const API_BASE_URL = 'http://localhost:4000/ajouter';
+const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter';
 
 
 class ApiService {
@@ -525,7 +525,7 @@ class ApiService {
     const token = localStorage.getItem('accessToken');
 
     const response = await fetch(
-      `http://localhost:4000/ajouter/projects/${projectId}/status`,
+      `https://plan-back.azurewebsites.net/ajouter/projects/${projectId}/status`,
       {
         method: 'PUT',
         headers: {
