@@ -19,12 +19,8 @@ const Header = () => {
   };
 
   const navItems = [
-<<<<<<< HEAD
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     // Add more nav items as needed
-=======
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' }
->>>>>>> fd8fad8296acdef2a663736335c32e5e936569eb
   ];
 
   return (
@@ -34,11 +30,7 @@ const Header = () => {
         {/* Logo */}
         <div className="logo">
           <div className="logo-icon">📊</div>
-<<<<<<< HEAD
           <h1>AI AND SOFTWARE TEAM PLANNING</h1> {/* Fixed typo: PLANNIG -> PLANNING */}
-=======
-          <h1>AI AND SOFTWARE TEAM PLANNIG</h1>
->>>>>>> fd8fad8296acdef2a663736335c32e5e936569eb
         </div>
 
         {/* Workspace Selector */}

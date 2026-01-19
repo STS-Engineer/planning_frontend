@@ -1,11 +1,9 @@
 
 
 // src/services/api.js
-<<<<<<< HEAD
+
 const API_BASE_URL = 'http://localhost:4000/ajouter';
-=======
-const API_BASE_URL = 'https://plan-back.azurewebsites.net/ajouter';
->>>>>>> fd8fad8296acdef2a663736335c32e5e936569eb
+
 
 class ApiService {
   constructor() {
@@ -237,7 +235,6 @@ class ApiService {
     });
   }
 
-<<<<<<< HEAD
   //notifications
   // In your ApiService class, add:
 
@@ -268,8 +265,6 @@ class ApiService {
     });
   }
 
-=======
->>>>>>> fd8fad8296acdef2a663736335c32e5e936569eb
   // Update task status for drag and drop
   async updateTaskStatus(taskId, status) {
     console.log('Updating task status:', { taskId, status });
@@ -530,11 +525,7 @@ class ApiService {
     const token = localStorage.getItem('accessToken');
 
     const response = await fetch(
-<<<<<<< HEAD
       `http://localhost:4000/ajouter/projects/${projectId}/status`,
-=======
-      `https://plan-back.azurewebsites.net/ajouter/projects/${projectId}/status`,
->>>>>>> fd8fad8296acdef2a663736335c32e5e936569eb
       {
         method: 'PUT',
         headers: {

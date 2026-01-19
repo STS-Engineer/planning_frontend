@@ -15,11 +15,7 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="App">
-<<<<<<< HEAD
-          {/* ToastContainer with center position */}
-=======
-      {/* ToastContainer with center position */}
->>>>>>> fd8fad8296acdef2a663736335c32e5e936569eb
+
           <ToastContainer
             position="top-center"  // Changed from "top-right" to "top-center"
             autoClose={5000}
@@ -45,9 +41,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
-            {/* Redirect root to dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
             {/* Catch all route */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

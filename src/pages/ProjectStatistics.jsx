@@ -3463,8 +3463,7 @@ const EmptyState = ({ icon, title, message }) => (
 );
 
 
-<<<<<<< HEAD
+
 export default ProjectStatistics;
-=======
-export default ProjectStatistics;
->>>>>>> fd8fad8296acdef2a663736335c32e5e936569eb
+
+
