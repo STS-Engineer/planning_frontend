@@ -801,7 +801,7 @@ const Board = () => {
                   Your Projects
                 </h2>
 
-                {user?.role === 'ADMIN' && (
+                {user?.role === 'ADMIN' || user?.role === 'member' && (
                   <button
                     className="create-project-btn"
                     onClick={() => {
@@ -1194,7 +1194,7 @@ const Board = () => {
                                         ✏️
                                       </button>
                                     )}
-                                    {user.role === 'ADMIN' && (
+                                    {user.role === 'ADMIN' || user.role === 'member' && (
                                       <button
                                         className="project-action-btn validate-btn"
                                         onClick={async (e) => {
