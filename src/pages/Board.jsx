@@ -1182,7 +1182,7 @@ const Board = () => {
                               {(user?.role === 'ADMIN' && user.role === 'member' || project.members?.some(m => m.id === user?.id)) &&
                                 project.status !== 'validated' && project.status !== 'archived' && (
                                   <div className="action-buttons-group">
-                                    {user?.role === 'ADMIN' && (
+                                    {user?.role === 'member' && (
                                       <button
                                         className="project-action-btn edit-project-btn"
                                         title="Edit Project"
