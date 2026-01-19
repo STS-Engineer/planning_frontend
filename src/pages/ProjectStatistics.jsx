@@ -75,11 +75,11 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                         {isMemberView ? 'Loading member timeline...' : 'Loading timeline data...'}
                     </p>
                     <style>{`
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                `}</style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
                 </div>
             );
         }
@@ -92,6 +92,27 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                 />
             );
         }
+
+        // Prepare chart data based on view type
+        const chartData = timelineData.map(item => {
+            if (isMemberView) {
+                return {
+                    date: item.date,
+                    // Member progress data
+                    progress: item.memberProgress || item.progress || 0,
+                    memberProgress: item.memberProgress || item.progress || 0,
+                    memberTasksCompleted: item.memberTasksCompleted || item.tasksCompleted || 0,
+                    dailyCompletedTasks: item.dailyCompletedTasks || 0,
+                    memberProductivity: item.memberProductivity || item.teamProductivity || 0,
+                    productivity: item.memberProductivity || item.teamProductivity || 0,
+                    tasksCompleted: item.memberTasksCompleted || item.tasksCompleted || 0,
+                    // For consistency with tooltip
+                    activeMembers: 1, // Single member view
+                    assignedTasks: item.assignedTasks || 0
+                };
+            }
+            return item;
+        });
 
         return (
             <div style={{
@@ -130,7 +151,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                             borderRadius: '12px',
                             marginLeft: '10px'
                         }}>
-                            {timelineData.length} days
+                            {timelineData.length} weeks
                             {isMemberView && ' • Member View'}
                         </span>
                     </h2>
@@ -168,7 +189,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                         }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <ComposedChart
-                                    data={timelineData}
+                                    data={chartData}
                                     margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -219,41 +240,47 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                                 'totalProgress': 'Overall Progress',
                                                 'tasksCompleted': 'Tasks Completed',
                                                 'completedTasks': 'Total Tasks Completed',
-                                                'tasksCreated': 'Tasks Created',
-                                                'newTasks': 'New Tasks',
-                                                'dailyNewTasks': 'New Tasks (Daily)',
-                                                'dailyCompletedTasks': 'Completed Tasks (Daily)',
-                                                'activeMembers': 'Active Members',
-                                                'activeProjects': 'Active Projects',
-                                                'productivity': isMemberView ? 'Member Productivity' : 'Team Productivity',
-                                                'todoTasks': 'To Do Tasks',
-                                                'inProgressTasks': 'In Progress Tasks',
-                                                'memberTasksCompleted': 'Member Tasks Completed',
+                                                'memberTasksCompleted': 'Tasks Completed (Member)',
+                                                'dailyCompletedTasks': 'Daily Completed Tasks',
                                                 'memberProductivity': 'Member Productivity',
-                                                'assignedTasks': 'Assigned Tasks'
+                                                'productivity': isMemberView ? 'Member Productivity' : 'Team Productivity'
                                             }[name] || name;
 
-                                            const formattedValue = name.includes('Progress') || name.includes('productivity') || name.includes('Productivity')
-                                                ? `${value}%`
+                                            const formattedValue = name.includes('Progress') ||
+                                                name.includes('productivity') ||
+                                                name.includes('Productivity')
+                                                ? `${Number(value).toFixed(1)}%`
                                                 : value;
 
                                             return [formattedValue, formattedName];
                                         }}
-                                        labelFormatter={(label) => `Date: ${label}`}
+                                        labelFormatter={(label) => `Week: ${label}`}
                                     />
                                     <Legend
                                         verticalAlign="top"
                                         height={36}
+                                        formatter={(value) => {
+                                            const legendMap = {
+                                                'progress': isMemberView ? 'Member Progress' : 'Progress',
+                                                'memberProgress': 'Member Progress',
+                                                'totalProgress': 'Overall Progress',
+                                                'memberTasksCompleted': 'Cumulative Tasks',
+                                                'dailyCompletedTasks': 'Daily Completed',
+                                                'memberProductivity': 'Member Productivity',
+                                                'productivity': isMemberView ? 'Member Productivity' : 'Team Productivity'
+                                            };
+                                            return legendMap[value] || value;
+                                        }}
                                     />
 
                                     {isMemberView ? (
-                                        // Member-specific timeline
+                                        // Member-specific timeline - FIXED DATA KEYS
                                         <>
                                             <Area
                                                 yAxisId="left"
                                                 type="monotone"
                                                 dataKey="memberProgress"
-                                                name="Member Progress"
+                                                name="memberProgress"
                                                 stroke="#9d4edd"
                                                 fill="url(#colorMemberProgress)"
                                                 strokeWidth={3}
@@ -264,7 +291,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                                 yAxisId="right"
                                                 type="monotone"
                                                 dataKey="memberTasksCompleted"
-                                                name="Tasks Completed (Member)"
+                                                name="memberTasksCompleted"
                                                 stroke="#4ecdc4"
                                                 strokeWidth={2}
                                                 dot={{ r: 2 }}
@@ -272,7 +299,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             <Bar
                                                 yAxisId="right"
                                                 dataKey="dailyCompletedTasks"
-                                                name="Daily Completed (Member)"
+                                                name="dailyCompletedTasks"
                                                 fill="#a8e6cf"
                                                 radius={[2, 2, 0, 0]}
                                                 opacity={0.7}
@@ -281,7 +308,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                                 yAxisId="left"
                                                 type="monotone"
                                                 dataKey="memberProductivity"
-                                                name="Member Productivity"
+                                                name="memberProductivity"
                                                 stroke="#ff6b6b"
                                                 strokeWidth={2}
                                                 strokeDasharray="3 3"
@@ -295,7 +322,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                                 yAxisId="left"
                                                 type="monotone"
                                                 dataKey="progress"
-                                                name="Progress"
+                                                name="progress"
                                                 stroke="#667eea"
                                                 fill="url(#colorProgress)"
                                                 strokeWidth={3}
@@ -306,7 +333,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                                 yAxisId="right"
                                                 type="monotone"
                                                 dataKey="tasksCompleted"
-                                                name="Cumulative Completed"
+                                                name="tasksCompleted"
                                                 stroke="#4ecdc4"
                                                 strokeWidth={2}
                                                 dot={{ r: 2 }}
@@ -314,7 +341,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             <Bar
                                                 yAxisId="right"
                                                 dataKey="dailyCompletedTasks"
-                                                name="Daily Completed"
+                                                name="dailyCompletedTasks"
                                                 fill="#a8e6cf"
                                                 radius={[2, 2, 0, 0]}
                                                 opacity={0.7}
@@ -322,7 +349,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             <Scatter
                                                 yAxisId="right"
                                                 dataKey="activeMembers"
-                                                name="Active Members"
+                                                name="activeMembers"
                                                 fill="#ff6b6b"
                                                 shape="circle"
                                             />
@@ -334,7 +361,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                                 yAxisId="left"
                                                 type="monotone"
                                                 dataKey="totalProgress"
-                                                name="Overall Progress"
+                                                name="totalProgress"
                                                 stroke="#667eea"
                                                 fill="url(#colorProgress)"
                                                 strokeWidth={3}
@@ -345,7 +372,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                                 yAxisId="right"
                                                 type="monotone"
                                                 dataKey="completedTasks"
-                                                name="Cumulative Completed"
+                                                name="completedTasks"
                                                 stroke="#4ecdc4"
                                                 strokeWidth={2}
                                                 dot={{ r: 2 }}
@@ -354,7 +381,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                                 yAxisId="left"
                                                 type="monotone"
                                                 dataKey="productivity"
-                                                name="Team Productivity"
+                                                name="productivity"
                                                 stroke="#9d4edd"
                                                 strokeWidth={2}
                                                 strokeDasharray="3 3"
@@ -363,7 +390,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             <Bar
                                                 yAxisId="right"
                                                 dataKey="dailyNewTasks"
-                                                name="New Tasks (Daily)"
+                                                name="dailyNewTasks"
                                                 fill="#ffd93d"
                                                 radius={[2, 2, 0, 0]}
                                                 opacity={0.6}
@@ -377,10 +404,6 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             <stop offset="95%" stopColor="#667eea" stopOpacity={0.1} />
                                         </linearGradient>
                                         <linearGradient id="colorMemberProgress" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#9d4edd" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="#9d4edd" stopOpacity={0.1} />
-                                        </linearGradient>
-                                        <linearGradient id="colorProductivity" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#9d4edd" stopOpacity={0.8} />
                                             <stop offset="95%" stopColor="#9d4edd" stopOpacity={0.1} />
                                         </linearGradient>
@@ -420,43 +443,43 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             <TimelineInsightCard
                                                 icon="📈"
                                                 title="Member Progress"
-                                                value={`${timelineInsights.memberProgress || timelineInsights.currentProgress || 0}%`}
+                                                value={`${timelineInsights.memberProgress || 0}%`}
                                                 change="Personal completion rate"
                                                 color="#9d4edd"
                                             />
                                             <TimelineInsightCard
                                                 icon="⚡"
                                                 title="Avg Daily Progress"
-                                                value={`${timelineInsights.averageDailyProgress || calculateAverageDailyProgress()}%`}
+                                                value={`${timelineInsights.averageDailyProgress || 0}%`}
                                                 change="per day"
                                                 color="#4ecdc4"
                                             />
                                             <TimelineInsightCard
                                                 icon="🎯"
                                                 title="Most Productive Day"
-                                                value={timelineInsights.mostProductiveDay?.date || findMostProductiveDay()}
+                                                value={timelineInsights.mostProductiveDay?.date || 'N/A'}
                                                 change={`Completed ${timelineInsights.mostProductiveDay?.tasks || 0} tasks`}
                                                 color="#ffd93d"
                                             />
                                             <TimelineInsightCard
                                                 icon="📊"
                                                 title="Productivity"
-                                                value={`${timelineInsights.memberProductivity || calculateMemberProductivity()}%`}
+                                                value={`${timelineInsights.memberProductivity || 0}%`}
                                                 change="Member efficiency score"
                                                 color="#ff6b6b"
                                             />
                                             <TimelineInsightCard
                                                 icon="📅"
                                                 title="Active Days"
-                                                value={timelineInsights.activeDays || calculateActiveDays()}
+                                                value={timelineInsights.activeDays || 0}
                                                 change="Days with contributions"
                                                 color="#667eea"
                                             />
                                             <TimelineInsightCard
                                                 icon="📈"
                                                 title="Progress Trend"
-                                                value={(timelineInsights.progressTrend || calculateMemberProgressTrend()) > 0 ? "📈 Rising" : "📉 Declining"}
-                                                change={`${Math.abs(timelineInsights.progressTrend || calculateMemberProgressTrend())}% weekly`}
+                                                value={(timelineInsights.progressTrend || 0) > 0 ? "📈 Rising" : "📉 Declining"}
+                                                change={`${Math.abs(timelineInsights.progressTrend || 0)}% weekly`}
                                                 color="#36ba9b"
                                             />
                                         </>
@@ -472,21 +495,21 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             <TimelineInsightCard
                                                 icon="⚡"
                                                 title="Avg Daily Progress"
-                                                value={`${timelineInsights.averageDailyProgress || calculateAverageDailyProgress()}%`}
+                                                value={`${timelineInsights.averageDailyProgress || 0}%`}
                                                 change="per day"
                                                 color="#4ecdc4"
                                             />
                                             <TimelineInsightCard
                                                 icon="🎯"
                                                 title="Peak Productivity"
-                                                value={timelineInsights.peakProgressDay?.date || findPeakProgressDay()}
+                                                value={timelineInsights.peakProgressDay?.date || 'N/A'}
                                                 change={`+${timelineInsights.peakProgressDay?.progressIncrease || 0}% increase`}
                                                 color="#ffd93d"
                                             />
                                             <TimelineInsightCard
                                                 icon="📊"
                                                 title="Consistency"
-                                                value={`${timelineInsights.consistencyScore || calculateTimelineCoverage()}%`}
+                                                value={`${timelineInsights.consistencyScore || 0}%`}
                                                 change="Progress stability"
                                                 color="#ff6b6b"
                                             />
@@ -503,14 +526,14 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             <TimelineInsightCard
                                                 icon="📊"
                                                 title="Avg Productivity"
-                                                value={`${timelineInsights.averageDailyProductivity || calculateAverageProductivity()}%`}
+                                                value={`${timelineInsights.averageDailyProductivity || 0}%`}
                                                 change="across all projects"
                                                 color="#4ecdc4"
                                             />
                                             <TimelineInsightCard
                                                 icon="🚀"
                                                 title="Most Productive Day"
-                                                value={timelineInsights.mostProductiveDay?.date || findMostProductiveDay()}
+                                                value={timelineInsights.mostProductiveDay?.date || 'N/A'}
                                                 change={`${timelineInsights.mostProductiveDay?.productivity || 0}% productivity`}
                                                 color="#ffd93d"
                                             />
@@ -524,8 +547,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                             <TimelineInsightCard
                                                 icon="📈"
                                                 title="Progress Trend"
-                                                value={(timelineInsights.progressTrend || calculateProgressTrend()) > 0 ? "📈 Rising" : "📉 Declining"}
-                                                change={`${Math.abs(timelineInsights.progressTrend || calculateProgressTrend())}% weekly`}
+                                                value={(timelineInsights.progressTrend || 0) > 0 ? "📈 Rising" : "📉 Declining"}
+                                                change={`${Math.abs(timelineInsights.progressTrend || 0)}% weekly`}
                                                 color="#36ba9b"
                                             />
                                         </>
@@ -546,8 +569,16 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                         <span>Member Progress</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                        <div style={{ width: '2px', height: '12px', background: '#ff6b6b' }}></div>
-                                        <span>Team Productivity</span>
+                                        <div style={{ width: '12px', height: '2px', background: '#ff6b6b', borderStyle: 'dashed' }}></div>
+                                        <span>Member Productivity</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{ width: '12px', height: '12px', background: '#4ecdc4', borderRadius: '2px' }}></div>
+                                        <span>Cumulative Tasks</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <div style={{ width: '12px', height: '12px', background: '#a8e6cf', borderRadius: '2px' }}></div>
+                                        <span>Daily Completed Tasks</span>
                                     </div>
                                 </>
                             ) : (
@@ -562,7 +593,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                         <div style={{ width: '12px', height: '12px', background: '#4ecdc4', borderRadius: '2px' }}></div>
-                                        <span>Weekly Completed Tasks</span>
+                                        <span>Completed Tasks</span>
                                     </div>
                                     {isSingleProject ? (
                                         <>
@@ -581,8 +612,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                         </>
                                     ) : (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                            <div style={{ width: '12px', height: '2px', background: '#ff6b6b' }}></div>
-                                            <span>Active Projects</span>
+                                            <div style={{ width: '12px', height: '12px', background: '#ffd93d', borderRadius: '2px' }}></div>
+                                            <span>New Tasks (Daily)</span>
                                         </div>
                                     )}
                                 </>
@@ -591,7 +622,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                 marginLeft: '10px', padding: '4px 8px', background: '#f0f0f0',
                                 borderRadius: '4px', fontSize: '11px', fontStyle: 'italic'
                             }}>
-                                📅 Weekly aggregated data by month
+                                📅 Weekly aggregated data
                             </div>
                         </div>
                     </>
@@ -1868,7 +1899,6 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                     </div>
                                 </div>
                             )}
-
                         </div>
 
                         {/* View Mode Buttons */}
