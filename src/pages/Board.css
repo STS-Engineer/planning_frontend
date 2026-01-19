@@ -434,12 +434,6 @@
 }
 
 
-
-.project-action-btn:hover {
-  background: #edf2f7;
-  transform: scale(1.1);
-}
-
 .btn-spinner {
   display: inline-block;
   width: 16px;
