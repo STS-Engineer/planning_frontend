@@ -801,7 +801,7 @@ const Board = () => {
                   Your Projects
                 </h2>
 
-                {user?.role === 'ADMIN' || user?.role === 'member' && (
+                {(user?.role === 'ADMIN' || user?.role === 'member') && (
                   <button
                     className="create-project-btn"
                     onClick={() => {
@@ -1179,10 +1179,10 @@ const Board = () => {
                               </span>
 
                               {/* Validation and Edit buttons group - placed together */}
-                              {(user?.role === 'ADMIN' && user.role === 'member' || project.members?.some(m => m.id === user?.id)) &&
+                              {(user?.role === 'ADMIN' || user?.role === 'member' || project.members?.some(m => m.id === user?.id)) &&
                                 project.status !== 'validated' && project.status !== 'archived' && (
                                   <div className="action-buttons-group">
-                                    {user?.role === 'member' && (
+                                    {(user?.role === 'ADMIN' || user?.role === 'member') && (
                                       <button
                                         className="project-action-btn edit-project-btn"
                                         title="Edit Project"
@@ -1194,7 +1194,8 @@ const Board = () => {
                                         ✏️
                                       </button>
                                     )}
-                                    {user.role === 'ADMIN' || user.role === 'member' && (
+
+                                    {(user.role === 'ADMIN' || user.role === 'member') && (
                                       <button
                                         className="project-action-btn validate-btn"
                                         onClick={async (e) => {
