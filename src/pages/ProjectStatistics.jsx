@@ -1778,6 +1778,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
         setMemberStats(null);
     };
 
+
     // Show individual project statistics when a project is selected
     // Replace the problematic section with this:
 
@@ -2174,17 +2175,21 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                 gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
                                 gap: '20px'
                             }}>
-                                {filteredProjectsKPI.map(project => {
-                                    const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
-                                    return (
-                                        <ProjectKPICard
-                                            key={project.projectId}
-                                            project={project}
-                                            avgTasksPerDay={avgTasksPerDay}
-                                            isFilteredView={selectedMember !== 'all'}
-                                        />
-                                    );
-                                })}
+                                {filteredProjectsKPI
+                                    .slice() // Add this
+                                    .sort((a, b) => (a.completionRate || 0) - (b.completionRate || 0))
+                                    .map(project => {
+                                        const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
+                                        return (
+                                            <ProjectKPICard
+                                                key={project.projectId}
+                                                project={project}
+                                                avgTasksPerDay={avgTasksPerDay}
+                                                isFilteredView={selectedMember !== 'all'}
+                                            />
+                                        );
+                                    })}
+
                             </div>
                         ) : (
                             <div style={{
@@ -2193,17 +2198,20 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                 gap: '15px',
                                 maxWidth: '100%'
                             }}>
-                                {filteredProjectsKPI.map(project => {
-                                    const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
-                                    return (
-                                        <ProjectKPIList
-                                            key={project.projectId}
-                                            project={project}
-                                            avgTasksPerDay={avgTasksPerDay}
-                                            isFilteredView={selectedMember !== 'all'}
-                                        />
-                                    );
-                                })}
+                                {filteredProjectsKPI
+                                   .slice() // Add this
+                                    .sort((a, b) => (a.completionRate || 0) - (b.completionRate || 0))
+                                    .map(project => {
+                                        const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
+                                        return (
+                                            <ProjectKPIList
+                                                key={project.projectId}
+                                                project={project}
+                                                avgTasksPerDay={avgTasksPerDay}
+                                                isFilteredView={selectedMember !== 'all'}
+                                            />
+                                        );
+                                    })}
                             </div>
                         )}
                     </div>
@@ -2656,17 +2664,20 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                             gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
                             gap: '20px'
                         }}>
-                            {filteredProjectsKPI.map(project => {
-                                const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
-                                return (
-                                    <ProjectKPICard
-                                        key={project.projectId}
-                                        project={project}
-                                        avgTasksPerDay={avgTasksPerDay}
-                                        isFilteredView={selectedMember !== 'all'}
-                                    />
-                                );
-                            })}
+                            {filteredProjectsKPI
+                                .slice() // Add this
+                                .sort((a, b) => (a.completionRate || 0) - (b.completionRate || 0))
+                                .map(project => {
+                                    const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
+                                    return (
+                                        <ProjectKPICard
+                                            key={project.projectId}
+                                            project={project}
+                                            avgTasksPerDay={avgTasksPerDay}
+                                            isFilteredView={selectedMember !== 'all'}
+                                        />
+                                    );
+                                })}
                         </div>
                     ) : (
                         <div style={{
@@ -2675,17 +2686,20 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                             gap: '15px',
                             maxWidth: '100%'
                         }}>
-                            {filteredProjectsKPI.map(project => {
-                                const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
-                                return (
-                                    <ProjectKPIList
-                                        key={project.projectId}
-                                        project={project}
-                                        avgTasksPerDay={avgTasksPerDay}
-                                        isFilteredView={selectedMember !== 'all'}
-                                    />
-                                );
-                            })}
+                            {filteredProjectsKPI
+                               .slice() // Add this
+                                .sort((a, b) => (a.completionRate || 0) - (b.completionRate || 0))
+                                .map(project => {
+                                    const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
+                                    return (
+                                        <ProjectKPIList
+                                            key={project.projectId}
+                                            project={project}
+                                            avgTasksPerDay={avgTasksPerDay}
+                                            isFilteredView={selectedMember !== 'all'}
+                                        />
+                                    );
+                                })}
                         </div>
                     )}
                 </div>
