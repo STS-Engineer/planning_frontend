@@ -44,14 +44,14 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
     const [timelineInsights, setTimelineInsights] = useState(null);
     const [showTimelineChart, setShowTimelineChart] = useState(true);
     const [timelineLoading, setTimelineLoading] = useState(false);
-
+    const [selectedTimelineProject, setSelectedTimelineProject] = useState('all');
 
 
 
     // TimelineChart Component
     // Replace the TimelineChart component with this updated version
     const TimelineChart = ({ memberId = null }) => {
-        const isSingleProject = selectedProject?.project_id;
+        const isSingleProject = selectedProject?.project_id || (selectedTimelineProject && selectedTimelineProject !== 'all');
         const isMemberView = memberId && memberId !== 'all';
 
         if (timelineLoading) {
@@ -161,6 +161,36 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                         alignItems: 'center',
                         gap: '10px'
                     }}>
+                        {/* Project Filter Dropdown - Only for Admin and when not in member view */}
+                        {user.role === 'ADMIN' && !isMemberView && filteredProjectsKPI.length > 1 && (
+                            <select
+                                value={selectedTimelineProject}
+                                onChange={(e) => {
+                                    setSelectedTimelineProject(e.target.value);
+                                    loadTimelineData(memberId, e.target.value);
+                                }}
+                                style={{
+                                    padding: '8px 16px',
+                                    background: 'white',
+                                    color: '#667eea',
+                                    border: '2px solid #667eea',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    transition: 'all 0.3s ease'
+                                }}
+                            >
+                                <option value="all">📊 All Projects</option>
+                                {filteredProjectsKPI.map(project => (
+                                    <option key={project.projectId} value={project.projectId}>
+                                        📁 {project.projectName}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+
+
                         <button
                             onClick={() => setShowTimelineChart(!showTimelineChart)}
                             style={{
@@ -857,6 +887,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                 setShowMemberStats(false);
                 setSelectedMember('all');
                 setMemberStats(null);
+                setSelectedTimelineProject('all'); // Reset timeline filter
                 // Load timeline for all projects
                 loadTimelineData();
                 return;
@@ -990,16 +1021,21 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
     });
 
     // Update loadTimelineData function
-    const loadTimelineData = async (memberId = null) => {
+    const loadTimelineData = async (memberId = null, projectIdFilter = null) => {
         try {
             setTimelineLoading(true);
+
+            // Use the projectIdFilter parameter if provided, otherwise use selectedTimelineProject state
+            const filterProjectId = projectIdFilter !== null ? projectIdFilter : selectedTimelineProject;
 
             // Create a consistent cache key based on current state
             const cacheKey = memberId && memberId !== 'all' ?
                 `member_${memberId}` :
-                selectedProject?.project_id ?
-                    `project_${selectedProject.project_id}` :
-                    'all_projects';
+                filterProjectId && filterProjectId !== 'all' ?
+                    `project_${filterProjectId}` :
+                    selectedProject?.project_id ?
+                        `project_${selectedProject.project_id}` :
+                        'all_projects';
 
             // Check cache first
             if (timelineCache[cacheKey]?.data) {
@@ -1023,6 +1059,29 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                     timelineData,
                     insights
                 };
+            } else if (filterProjectId && filterProjectId !== 'all') {
+                // For filtered project in all projects view
+                console.log('📊 Loading timeline for filtered project:', filterProjectId);
+
+                const filteredProject = filteredProjectsKPI.find(p => p.projectId === parseInt(filterProjectId));
+                if (filteredProject) {
+                    const timelineData = generateRealisticTimelineData(null, filteredProject);
+                    const insights = generateDynamicProjectInsights(timelineData);
+
+                    response = {
+                        timelineData,
+                        insights
+                    };
+                } else {
+                    // Fallback to all projects if project not found
+                    const timelineData = generateRealisticTimelineData();
+                    const insights = generateDynamicAllProjectsInsights(timelineData);
+
+                    response = {
+                        timelineData,
+                        insights
+                    };
+                }
             } else if (selectedProject?.project_id) {
                 // For single project
                 console.log('📊 Loading project timeline for:', selectedProject['project-name']);
@@ -1052,7 +1111,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             if (response && response.timelineData) {
                 console.log('✅ Timeline data loaded:', {
                     length: response.timelineData.length,
-                    type: memberId ? 'member' : selectedProject ? 'project' : 'all'
+                    type: memberId ? 'member' : filterProjectId ? 'filtered-project' : selectedProject ? 'project' : 'all'
                 });
 
                 const timelineData = response.timelineData;
@@ -1073,11 +1132,15 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
             }
         } catch (error) {
             console.error('❌ Failed to load timeline data:', error);
+            // Redefine filterProjectId in catch scope
+            const filterProjectId = projectIdFilter !== null ? projectIdFilter : selectedTimelineProject;
             // Generate deterministic data based on current stats
             const timelineData = generateRealisticTimelineData(memberId);
             const insights = generateDynamicInsights(
                 timelineData,
-                memberId ? `member_${memberId}` : selectedProject ? `project_${selectedProject.project_id}` : 'all_projects'
+                memberId ? `member_${memberId}` :
+                    filterProjectId && filterProjectId !== 'all' ? `project_${filterProjectId}` :
+                        selectedProject ? `project_${selectedProject.project_id}` : 'all_projects'
             );
 
             setTimelineData(timelineData);
@@ -1292,14 +1355,14 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
 
 
     // Updated sample data generator with member support
-    const generateRealisticTimelineData = (memberId = null) => {
+    const generateRealisticTimelineData = (memberId = null, specificProject = null) => {
         const now = new Date();
         const data = [];
-        const isSingleProject = selectedProject?.project_id;
+        const isSingleProject = selectedProject?.project_id || specificProject;
         const isMemberView = memberId && memberId !== 'all';
 
         if (isSingleProject) {
-            const project = filteredProjectsKPI[0];
+            const project = specificProject || filteredProjectsKPI[0];
             if (!project) return [];
 
             const {
@@ -1692,9 +1755,9 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
     // Add another useEffect to load timeline when data is ready
     useEffect(() => {
         if (filteredProjectsKPI.length > 0 || memberStats) {
-            loadTimelineData(selectedMember);
+            loadTimelineData(selectedMember, selectedTimelineProject);
         }
-    }, [filteredProjectsKPI, memberStats, selectedMember]);
+    }, [filteredProjectsKPI, memberStats, selectedMember, selectedTimelineProject]);
     // Handle member filter change
     const handleMemberFilterChange = (memberId) => {
         console.log('🔧 Filter changed to member:', memberId);
@@ -2199,7 +2262,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                                 maxWidth: '100%'
                             }}>
                                 {filteredProjectsKPI
-                                   .slice() // Add this
+                                    .slice() // Add this
                                     .sort((a, b) => (a.completionRate || 0) - (b.completionRate || 0))
                                     .map(project => {
                                         const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
@@ -2687,7 +2750,7 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                             maxWidth: '100%'
                         }}>
                             {filteredProjectsKPI
-                               .slice() // Add this
+                                .slice() // Add this
                                 .sort((a, b) => (a.completionRate || 0) - (b.completionRate || 0))
                                 .map(project => {
                                     const avgTasksPerDay = calculateAvgTasksPerDay(project.totalTasks, project.daysElapsed);
