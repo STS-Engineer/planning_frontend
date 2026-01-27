@@ -9,7 +9,7 @@ import SignIn from './components/auth/signin';
 import SignUp from './components/auth/signup';
 import 'react-toastify/dist/ReactToastify.css';
 import { ToastContainer } from 'react-toastify';
-
+import ProjectView from './pages/ProjectView';
 function App() {
   return (
     <AuthProvider>
@@ -41,7 +41,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
+            <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectView/></ProtectedRoute>} />
             {/* Catch all route */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
