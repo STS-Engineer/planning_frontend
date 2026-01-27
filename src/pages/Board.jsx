@@ -6,6 +6,7 @@ import List from './List';
 import './Board.css';
 import { toast } from 'react-toastify';
 import ProjectStatistics from './ProjectStatistics';
+import { useSearchParams } from 'react-router-dom';
 
 const Board = () => {
   const { user } = useAuth();
@@ -68,8 +69,20 @@ const Board = () => {
     comment: '',
     teamMembers: []
   });
+  const [searchParams] = useSearchParams(); 
 
 
+  useEffect(() => {
+  const projectIdFromUrl = searchParams.get('project');
+  if (projectIdFromUrl && projects.length > 0) {
+    const project = projects.find(p => p.project_id == projectIdFromUrl);
+    if (project) {
+      setSelectedProject(project);
+      loadProjectMembers(project.project_id);
+      loadProjectTasks(project.project_id);
+    }
+  }
+}, [projects, searchParams]);
   const handleEditProject = async (project) => {
     setEditingProject(project);
 
