@@ -408,12 +408,14 @@
 
 .project-actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid #e2e8f0;
+  position: relative;
 }
 
 .project-status {
@@ -426,13 +428,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .project-status::before {
   content: '●';
   font-size: 0.6rem;
 }
-
 
 .btn-spinner {
   display: inline-block;
@@ -444,6 +447,28 @@
   animation: spin 1s ease-in-out infinite;
   margin-right: 8px;
 }
+
+/* Add to your Board.css */
+.request-validation-btn {
+  background: linear-gradient(135deg, #ed8936, #dd6b20);
+  color: white;
+}
+
+.request-validation-btn:hover {
+  background: #764ba2;
+}
+
+.status-pending_validation {
+  background: #fff3cd;
+  color: #856404;
+}
+
+
+.status-validated {
+  background: #d4edda;
+  color: #155724;
+}
+
 
 @keyframes spin {
   to {
@@ -481,22 +506,20 @@
 /* Action buttons group styling - positioned top-right */
 /* Action buttons group styling - positioned top-right */
 .action-buttons-group {
-  position: absolute;
-  top: 16px;
-  right: 20px;
   display: flex;
+  gap: 8px;
   align-items: center;
-  gap: 10px;
-  z-index: 20;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .edit-project-btn {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  background: linear-gradient(135deg, #4299e1, #3182ce);
   color: white;
-  min-width: 44px;
-  margin-right: 160px;
-  padding: 10px;
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.25);
+  padding: 10px 20px;
+  /* top/bottom = 10px, left/right = 20px */
+  border-radius: 8px;
+  /* optional, makes it cleaner */
 }
 
 .edit-project-btn:hover:not(:disabled) {
@@ -1418,74 +1441,229 @@
 }
 
 .project-action-btn {
-  position: relative;
-  padding: 10px 22px;
+  padding: 8px 16px;
   font-size: 14px;
   font-weight: 600;
   border-radius: 10px;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  letter-spacing: 0.4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 120px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  height: 36px;
+  min-width: fit-content;
 }
 
 .project-action-btn.icon-only {
-  min-width: 50px;
-  padding: 10px;
+  width: 36px;
+  padding: 8px;
+  min-width: 36px;
 }
+
 
 .validate-btn {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  color: #ffffff;
+  background: linear-gradient(135deg, #48bb78, #38a169);
+  color: white;
+}
+
+.quick-actions-btn {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+}
+
+.delete-btn {
+  background: linear-gradient(135deg, #f56565, #e53e3e);
+  color: white;
 }
 
 
 
+.request-validation-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dd6b20, #c05621);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(237, 137, 54, 0.3);
+}
 
-<<<<<<< HEAD
-
-
-
-
-
-=======
-/* ✨ Hover effect */
 .validate-btn:hover:not(:disabled) {
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 14px 28px rgba(34, 197, 94, 0.35);
+  background: linear-gradient(135deg, #38a169, #2f855a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
 }
 
-/* 🖱️ Active click */
-.validate-btn:active:not(:disabled) {
-  transform: scale(0.98);
-  box-shadow: 0 6px 14px rgba(34, 197, 94, 0.25);
+.delete-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e53e3e, #c53030);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
 }
 
-/* ⛔ Disabled state */
-.validate-btn:disabled {
+/* Disabled state */
+.project-action-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
-  opacity: 0.7;
-  background: linear-gradient(135deg, #86efac, #4ade80);
-  box-shadow: none;
+  transform: none !important;
 }
 
-/* ⏳ Loading animation */
-.validate-btn:disabled::after {
-  content: '';
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  margin-left: 8px;
+/* ===================================
+   RESPONSIVE BREAKPOINTS
+   =================================== */
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+  .project-actions {
+    gap: 8px;
+  }
+
+  .project-action-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+    height: 32px;
+  }
+
+  .project-action-btn.icon-only {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+
+  .action-buttons-group {
+    gap: 6px;
+  }
 }
->>>>>>> fd8fad8296acdef2a663736335c32e5e936569eb
+
+/* Large Mobile (576px - 768px) */
+@media (max-width: 768px) {
+  .project-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .action-buttons-group {
+    margin-left: 0;
+    justify-content: space-between;
+    order: 2;
+  }
+
+  .project-status {
+    order: 1;
+    align-self: flex-start;
+  }
+
+  .project-action-btn:not(.icon-only) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .quick-actions-btn {
+    order: 3;
+    margin-top: 8px;
+  }
+
+  .delete-btn {
+    order: 4;
+    margin-top: 8px;
+  }
+
+  /* Stack validation buttons vertically on very small screens */
+  .action-buttons-group {
+    flex-direction: column;
+  }
+
+  .action-buttons-group .project-action-btn {
+    width: 100%;
+  }
+}
+
+/* Small Mobile (below 576px) */
+@media (max-width: 576px) {
+  .project-card {
+    padding: 16px;
+  }
+
+  .project-actions {
+    padding-top: 12px;
+    margin-top: 12px;
+  }
+
+  .project-action-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    height: 32px;
+  }
+
+  .project-status {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+  }
+
+  /* Hide text, show only icons on very small screens */
+  .project-action-btn span:not(.icon) {
+    display: none;
+  }
+
+  .project-action-btn:not(.icon-only) {
+    min-width: 36px;
+    width: 36px;
+    padding: 8px;
+    justify-content: center;
+  }
+
+  .project-action-btn::before {
+    content: attr(title);
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s;
+    z-index: 100;
+  }
+
+  .project-action-btn:hover::before {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* Extra Small Mobile (below 400px) */
+@media (max-width: 400px) {
+  .project-card {
+    padding: 12px;
+  }
+
+  .project-actions {
+    gap: 8px;
+  }
+
+  .project-action-btn {
+    height: 30px;
+    min-width: 30px;
+  }
+
+  .project-action-btn.icon-only {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+
+
+
+
+
 
 @keyframes spin {
   to {
