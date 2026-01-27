@@ -236,6 +236,7 @@ const Board = () => {
 
   // Add filter function
   // Update the filteredProjects useMemo function
+  // Update the filteredProjects useMemo to handle pending_validation status
   const filteredProjects = useMemo(() => {
     let filtered = projects;
 
@@ -249,16 +250,23 @@ const Board = () => {
     // Filter by status
     if (filterStatus !== 'all') {
       filtered = filtered.filter(project => {
-        // Add your status filtering logic here based on your project status field
-        // For now, let's assume projects have a status field
-        return project.status === filterStatus;
+        const projectStatus = project.status || 'active';
+
+        if (filterStatus === 'completed') {
+          return projectStatus === 'validated' || projectStatus === 'completed';
+        }
+
+        if (filterStatus === 'active') {
+          return projectStatus === 'active' || projectStatus === 'pending_validation';
+        }
+
+        return projectStatus === filterStatus;
       });
     }
 
-    // Filter by person - ADD THIS SECTION
+    // Filter by person
     if (filterPerson !== 'all') {
       filtered = filtered.filter(project => {
-        // Check if the selected person is a member of the project
         return project.members?.some(member =>
           member.id.toString() === filterPerson ||
           member.email?.toLowerCase().includes(filterPerson.toLowerCase())
@@ -266,7 +274,6 @@ const Board = () => {
       });
     }
 
-    // If a project is selected, show it first
     if (selectedProject) {
       const selected = filtered.find(p => p.project_id === selectedProject.project_id);
       const others = filtered.filter(p => p.project_id !== selectedProject.project_id);
@@ -1172,13 +1179,17 @@ const Board = () => {
                             )}
 
                             {/* Inside your project card rendering */}
+                            {/* Inside your project card rendering */}
                             <div className="project-actions">
-                              {/* Status badge with color coding */}
+                              {/* Status badge */}
                               <span className={`project-status status-${project.status || 'active'}`}>
-                                {project.status || 'active'}
+                                {project.status === 'pending_validation' ? '⏳ Pending' :
+                                  project.status === 'validated' ? '✅ Validated' :
+                                    project.status === 'archived' ? '📦 Archived' :
+                                      'Active'}
                               </span>
 
-                              {/* Validation and Edit buttons group - placed together */}
+                              {/* Action buttons group */}
                               {(user?.role === 'ADMIN' || user?.role === 'member' || project.members?.some(m => m.id === user?.id)) &&
                                 project.status !== 'validated' && project.status !== 'archived' && (
                                   <div className="action-buttons-group">
@@ -1191,27 +1202,62 @@ const Board = () => {
                                           handleEditProject(project);
                                         }}
                                       >
-                                        ✏️
+                                        <span className="icon">✏️</span>
+                                        <span className="text">Edit</span>
                                       </button>
                                     )}
 
-                                    {(user.role === 'ADMIN' || user.role === 'member') && (
+                                    {/* Members can request validation */}
+                                    {user.role === 'member' && project.status !== 'pending_validation' && (
+                                      <button
+                                        className="project-action-btn request-validation-btn"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (window.confirm(`Request validation for "${project['project-name']}"?`)) {
+                                            try {
+                                              setUpdatingStatus(true);
+                                              await ApiService.updateProjectStatus(project.project_id, 'request_validation');
+                                              setProjects(prev => prev.map(p =>
+                                                p.project_id === project.project_id
+                                                  ? { ...p, status: 'pending_validation' }
+                                                  : p
+                                              ));
+                                              toast.success('Validation requested successfully!');
+                                            } catch (error) {
+                                              console.error('Failed to request validation:', error);
+                                              toast.error('Failed to request validation');
+                                            } finally {
+                                              setUpdatingStatus(false);
+                                            }
+                                          }
+                                        }}
+                                        disabled={updatingStatus}
+                                        title="Request Validation"
+                                      >
+                                        <span className="icon">📝</span>
+                                        <span className="text">Request for validation</span>
+                                      </button>
+                                    )}
+
+                                    {/* Admins can validate pending projects */}
+                                    {user.role === 'ADMIN' && (project.status === 'pending_validation' || project.status === 'active') && (
                                       <button
                                         className="project-action-btn validate-btn"
                                         onClick={async (e) => {
                                           e.stopPropagation();
-                                          if (window.confirm(`Mark "${project['project-name']}" as validated?`)) {
+                                          if (window.confirm(`Validate "${project['project-name']}"?`)) {
                                             try {
                                               setUpdatingStatus(true);
-                                              await ApiService.updateProjectStatus(project.project_id, 'validated');
-
-                                              // Update local state
+                                              await ApiService.updateProjectStatus(project.project_id, 'validate');
                                               setProjects(prev => prev.map(p =>
                                                 p.project_id === project.project_id
                                                   ? { ...p, status: 'validated' }
                                                   : p
                                               ));
-
+                                              if (filterStatus === 'active' && selectedProject?.project_id === project.project_id) {
+                                                setSelectedProject(null);
+                                                setLists(getInitialBoardStructure());
+                                              }
                                               toast.success('Project validated successfully!');
                                             } catch (error) {
                                               console.error('Failed to validate project:', error);
@@ -1224,19 +1270,19 @@ const Board = () => {
                                         disabled={updatingStatus}
                                         title="Validate Project"
                                       >
-                                        {updatingStatus ? 'Validating...' : 'Validate'}
+                                        <span className="icon">✅</span>
+                                        <span className="text">Validate</span>
                                       </button>
                                     )}
-
                                   </div>
                                 )}
 
                               {/* Other action buttons */}
-                              <button className="project-action-btn" title="Quick Actions">⚡</button>
+                       
 
                               {user?.role === 'ADMIN' && (
                                 <button
-                                  className="project-action-btn delete-btn"
+                                  className="project-action-btn delete-btn icon-only"
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     if (window.confirm("Are you sure you want to delete this project?")) {
@@ -1252,7 +1298,8 @@ const Board = () => {
                                   }}
                                   title="Delete Project"
                                 >
-                                  🗑️
+                                  <span className="icon">🗑️</span>
+                                  <span className="text">Delete</span>
                                 </button>
                               )}
                             </div>
@@ -1295,336 +1342,342 @@ const Board = () => {
       </div>
 
       {/* New Project Modal */}
-      {showNewProjectModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Create New Project</h3>
-              <button
-                className="modal-close"
-                onClick={() => setShowNewProjectModal(false)}
-              >
-                ×
-              </button>
+      {
+        showNewProjectModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h3>Create New Project</h3>
+                <button
+                  className="modal-close"
+                  onClick={() => setShowNewProjectModal(false)}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Project Name *</label>
+                  <input
+                    type="text"
+                    value={newProject.name}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter project name"
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Start Date</label>
+                    <input
+                      type="date"
+                      value={newProject.startDate}
+                      onChange={(e) => setNewProject(prev => ({ ...prev, startDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>End Date</label>
+                    <input
+                      type="date"
+                      value={newProject.endDate}
+                      onChange={(e) => setNewProject(prev => ({ ...prev, endDate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Team Members</label>
+                  <div className="team-members-section">
+                    {members.map(member => {
+                      const displayName = member.email.split('@')[0].replace(/\./g, ' ');
+                      return (
+                        <label key={member.id} className="member-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={newProject.teamMembers.some(m => m.id === member.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNewProject(prev => ({
+                                  ...prev,
+                                  teamMembers: [...prev.teamMembers, member]
+                                }));
+                              } else {
+                                setNewProject(prev => ({
+                                  ...prev,
+                                  teamMembers: prev.teamMembers.filter(m => m.id !== member.id)
+                                }));
+                              }
+                            }}
+                          />
+                          <span>{displayName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea
+                    value={newProject.comment}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, comment: e.target.value }))}
+                    placeholder="Project description or notes..."
+                    rows="3"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  className="btn-secondary"
+                  onClick={() => setShowNewProjectModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={createNewProject}
+                  disabled={!newProject.name.trim() || creatingProject}
+                >
+                  {creatingProject ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <span className="btn-icon">🚀</span>
+                      Create Project
+                    </>
+                  )}
+                </button>
+
+              </div>
             </div>
+          </div>
+        )
+      }
 
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Project Name *</label>
-                <input
-                  type="text"
-                  value={newProject.name}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter project name"
-                />
+      {/* Edit Task Modal */}
+      {
+        showEditTaskModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h3>Edit Task</h3>
+                <button
+                  className="modal-close"
+                  onClick={() => {
+                    setShowEditTaskModal(false);
+                    setEditingTask(null);
+                  }}
+                >
+                  ×
+                </button>
               </div>
 
-              <div className="form-row">
+              <div className="modal-body">
                 <div className="form-group">
-                  <label>Start Date</label>
+                  <label>Task Title *</label>
                   <input
-                    type="date"
-                    value={newProject.startDate}
-                    onChange={(e) => setNewProject(prev => ({ ...prev, startDate: e.target.value }))}
+                    type="text"
+                    value={editTaskData.title}
+                    onChange={(e) => setEditTaskData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Enter task title"
                   />
                 </div>
+
                 <div className="form-group">
-                  <label>End Date</label>
-                  <input
-                    type="date"
-                    value={newProject.endDate}
-                    onChange={(e) => setNewProject(prev => ({ ...prev, endDate: e.target.value }))}
+                  <label>Description</label>
+                  <textarea
+                    value={editTaskData.description}
+                    onChange={(e) => setEditTaskData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Task description"
+                    rows="3"
                   />
+                </div>
+
+                <div className="form-group">
+                  <label>Assign To</label>
+                  <select
+                    value={editTaskData.assigneeId || ''}
+                    onChange={(e) => setEditTaskData(prev => ({
+                      ...prev,
+                      assigneeId: e.target.value ? parseInt(e.target.value) : null
+                    }))}
+                    className="option-select"
+                  >
+                    <option value="">Unassigned</option>
+                    {members.map(member => (
+                      <option key={member.id} value={member.id}>
+                        {member.name} ({member.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Start Date</label>
+                    <input
+                      type="date"
+                      value={editTaskData.startDate}
+                      onChange={(e) => setEditTaskData(prev => ({ ...prev, startDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>End Date</label>
+                    <input
+                      type="date"
+                      value={editTaskData.endDate}
+                      onChange={(e) => setEditTaskData(prev => ({ ...prev, endDate: e.target.value }))}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Team Members</label>
-                <div className="team-members-section">
-                  {members.map(member => {
-                    const displayName = member.email.split('@')[0].replace(/\./g, ' ');
-                    return (
+              <div className="modal-footer">
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowEditTaskModal(false);
+                    setEditingTask(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={saveTaskEdits}
+                  disabled={!editTaskData.title.trim()}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {
+        showEditProjectModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h3>Edit Project</h3>
+                <button
+                  className="modal-close"
+                  onClick={() => setShowEditProjectModal(false)}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Project Name *</label>
+                  <input
+                    type="text"
+                    value={editProjectData.name}
+                    onChange={(e) =>
+                      setEditProjectData(prev => ({ ...prev, name: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Start Date</label>
+                    <input
+                      type="date"
+                      value={editProjectData.startDate}
+                      onChange={(e) =>
+                        setEditProjectData(prev => ({ ...prev, startDate: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>End Date</label>
+                    <input
+                      type="date"
+                      value={editProjectData.endDate}
+                      onChange={(e) =>
+                        setEditProjectData(prev => ({ ...prev, endDate: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Team Members</label>
+                  <div className="team-members-section">
+                    {members.map(member => (
                       <label key={member.id} className="member-checkbox">
                         <input
                           type="checkbox"
-                          checked={newProject.teamMembers.some(m => m.id === member.id)}
+                          checked={editProjectData.teamMembers.some(m => m.id === member.id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setNewProject(prev => ({
+                              setEditProjectData(prev => ({
                                 ...prev,
                                 teamMembers: [...prev.teamMembers, member]
                               }));
                             } else {
-                              setNewProject(prev => ({
+                              setEditProjectData(prev => ({
                                 ...prev,
                                 teamMembers: prev.teamMembers.filter(m => m.id !== member.id)
                               }));
                             }
                           }}
                         />
-                        <span>{displayName}</span>
+                        <span>{member.email.split('@')[0]}</span>
                       </label>
-                    );
-                  })}
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea
+                    value={editProjectData.comment}
+                    onChange={(e) =>
+                      setEditProjectData(prev => ({ ...prev, comment: e.target.value }))
+                    }
+                    rows="3"
+                  />
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={newProject.comment}
-                  onChange={(e) => setNewProject(prev => ({ ...prev, comment: e.target.value }))}
-                  placeholder="Project description or notes..."
-                  rows="3"
-                />
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button
-                className="btn-secondary"
-                onClick={() => setShowNewProjectModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                onClick={createNewProject}
-                disabled={!newProject.name.trim() || creatingProject}
-              >
-                {creatingProject ? (
-                  <>
-                    <span className="btn-spinner"></span>
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <span className="btn-icon">🚀</span>
-                    Create Project
-                  </>
-                )}
-              </button>
-
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Task Modal */}
-      {showEditTaskModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Edit Task</h3>
-              <button
-                className="modal-close"
-                onClick={() => {
-                  setShowEditTaskModal(false);
-                  setEditingTask(null);
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Task Title *</label>
-                <input
-                  type="text"
-                  value={editTaskData.title}
-                  onChange={(e) => setEditTaskData(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Enter task title"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={editTaskData.description}
-                  onChange={(e) => setEditTaskData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Task description"
-                  rows="3"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Assign To</label>
-                <select
-                  value={editTaskData.assigneeId || ''}
-                  onChange={(e) => setEditTaskData(prev => ({
-                    ...prev,
-                    assigneeId: e.target.value ? parseInt(e.target.value) : null
-                  }))}
-                  className="option-select"
+              <div className="modal-footer">
+                <button
+                  className="btn-secondary"
+                  onClick={() => setShowEditProjectModal(false)}
                 >
-                  <option value="">Unassigned</option>
-                  {members.map(member => (
-                    <option key={member.id} value={member.id}>
-                      {member.name} ({member.email})
-                    </option>
-                  ))}
-                </select>
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={saveProjectEdits}
+                  disabled={updatingProject}
+                >
+                  {updatingProject ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </button>
               </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Start Date</label>
-                  <input
-                    type="date"
-                    value={editTaskData.startDate}
-                    onChange={(e) => setEditTaskData(prev => ({ ...prev, startDate: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>End Date</label>
-                  <input
-                    type="date"
-                    value={editTaskData.endDate}
-                    onChange={(e) => setEditTaskData(prev => ({ ...prev, endDate: e.target.value }))}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  setShowEditTaskModal(false);
-                  setEditingTask(null);
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                onClick={saveTaskEdits}
-                disabled={!editTaskData.title.trim()}
-              >
-                Save Changes
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {showEditProjectModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Edit Project</h3>
-              <button
-                className="modal-close"
-                onClick={() => setShowEditProjectModal(false)}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Project Name *</label>
-                <input
-                  type="text"
-                  value={editProjectData.name}
-                  onChange={(e) =>
-                    setEditProjectData(prev => ({ ...prev, name: e.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Start Date</label>
-                  <input
-                    type="date"
-                    value={editProjectData.startDate}
-                    onChange={(e) =>
-                      setEditProjectData(prev => ({ ...prev, startDate: e.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>End Date</label>
-                  <input
-                    type="date"
-                    value={editProjectData.endDate}
-                    onChange={(e) =>
-                      setEditProjectData(prev => ({ ...prev, endDate: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Team Members</label>
-                <div className="team-members-section">
-                  {members.map(member => (
-                    <label key={member.id} className="member-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={editProjectData.teamMembers.some(m => m.id === member.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setEditProjectData(prev => ({
-                              ...prev,
-                              teamMembers: [...prev.teamMembers, member]
-                            }));
-                          } else {
-                            setEditProjectData(prev => ({
-                              ...prev,
-                              teamMembers: prev.teamMembers.filter(m => m.id !== member.id)
-                            }));
-                          }
-                        }}
-                      />
-                      <span>{member.email.split('@')[0]}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={editProjectData.comment}
-                  onChange={(e) =>
-                    setEditProjectData(prev => ({ ...prev, comment: e.target.value }))
-                  }
-                  rows="3"
-                />
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button
-                className="btn-secondary"
-                onClick={() => setShowEditProjectModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                onClick={saveProjectEdits}
-                disabled={updatingProject}
-              >
-                {updatingProject ? (
-                  <>
-                    <span className="btn-spinner"></span>
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </div>
+    </div >
   );
 };
 
