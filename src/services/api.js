@@ -521,7 +521,7 @@ class ApiService {
   }
 
   // In your ApiService.js
-  async updateProjectStatus(projectId, status) {
+  async updateProjectStatus(projectId, action) {
     const token = localStorage.getItem('accessToken');
 
     const response = await fetch(
@@ -532,9 +532,14 @@ class ApiService {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ action }) // ✅ Correct - sending 'action'
       }
     );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update project status');
+    }
 
     return await response.json();
   }
