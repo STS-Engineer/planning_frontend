@@ -1282,7 +1282,7 @@ const Board = () => {
 
                               {user?.role === 'ADMIN' && (
                                 <button
-                                  className="project-action-btn delete-btn icon-only"
+                                  className="project-action-btn delete-btn "
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     if (window.confirm("Are you sure you want to delete this project?")) {
