@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/context/AuthContext';
 import ApiService from '../services/api';
 import './Board.css';
+import './ProjectView.css';
 
 const ProjectView = () => {
   const { projectId } = useParams();
