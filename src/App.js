@@ -41,7 +41,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectView/></ProtectedRoute>} />
+            <Route path="/projects/:projectId" element={<ProjectView/>} />
             {/* Catch all route */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
