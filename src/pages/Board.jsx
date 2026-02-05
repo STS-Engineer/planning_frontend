@@ -69,20 +69,20 @@ const Board = () => {
     comment: '',
     teamMembers: []
   });
-  const [searchParams] = useSearchParams(); 
+  const [searchParams] = useSearchParams();
 
 
   useEffect(() => {
-  const projectIdFromUrl = searchParams.get('project');
-  if (projectIdFromUrl && projects.length > 0) {
-    const project = projects.find(p => p.project_id == projectIdFromUrl);
-    if (project) {
-      setSelectedProject(project);
-      loadProjectMembers(project.project_id);
-      loadProjectTasks(project.project_id);
+    const projectIdFromUrl = searchParams.get('project');
+    if (projectIdFromUrl && projects.length > 0) {
+      const project = projects.find(p => p.project_id == projectIdFromUrl);
+      if (project) {
+        setSelectedProject(project);
+        loadProjectMembers(project.project_id);
+        loadProjectTasks(project.project_id);
+      }
     }
-  }
-}, [projects, searchParams]);
+  }, [projects, searchParams]);
   const handleEditProject = async (project) => {
     setEditingProject(project);
 
@@ -835,6 +835,7 @@ const Board = () => {
                 )}
               </div>
 
+      
               {/* ADD FILTER BAR SECTION HERE */}
               {/* UPDATE THE FILTER BAR SECTION */}
               <div className="filter-bar">
@@ -860,17 +861,7 @@ const Board = () => {
 
                   <div className="filter-selects">
                     {/* Status Filter */}
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="filter-select"
-                    >
-                      <option value="all">All Projects</option>
-                      <option value="active">Active</option>
-                      <option value="completed">Completed</option>
-                      <option value="archived">Archived</option>
-                    </select>
-
+               
                     {/* Person Filter - ADD THIS */}
                     {user?.role === 'ADMIN' && (
                       <select
@@ -931,6 +922,53 @@ const Board = () => {
                       {filterPerson !== 'all' && " Person"}
                     </span>
                   )}
+                </div>
+              </div>
+
+                      {/* filter status */}
+              <div className="project-status-tabs">
+                <div className="status-tabs-container">
+                  <button
+                    className={`status-tab ${filterStatus === 'all' ? 'active' : ''}`}
+                    onClick={() => setFilterStatus('all')}
+                  >
+                    <span className="status-icon">📁</span>
+                    All Projects
+                    <span className="count-badge">{projects.length}</span>
+                  </button>
+
+                  <button
+                    className={`status-tab ${filterStatus === 'active' ? 'active' : ''}`}
+                    onClick={() => setFilterStatus('active')}
+                  >
+                    <span className="status-icon status-icon-active">⚡</span>
+                    Active
+                    <span className="count-badge">
+                      {projects.filter(p => p.status === 'active' || !p.status || p.status === 'pending_validation').length}
+                    </span>
+                  </button>
+
+                  <button
+                    className={`status-tab ${filterStatus === 'completed' ? 'active' : ''}`}
+                    onClick={() => setFilterStatus('completed')}
+                  >
+                    <span className="status-icon status-icon-completed">✅</span>
+                    Completed
+                    <span className="count-badge">
+                      {projects.filter(p => p.status === 'validated' || p.status === 'completed').length}
+                    </span>
+                  </button>
+
+                  <button
+                    className={`status-tab ${filterStatus === 'blocked' ? 'active' : ''}`}
+                    onClick={() => setFilterStatus('blocked')}
+                  >
+                    <span className="status-icon status-icon-blocked">⛔</span>
+                    Blocked
+                    <span className="count-badge">
+                      {projects.filter(p => p.status === 'blocked').length}
+                    </span>
+                  </button>
                 </div>
               </div>
               <div className="projects-grid">
@@ -1199,7 +1237,8 @@ const Board = () => {
                                 {project.status === 'pending_validation' ? '⏳ Pending' :
                                   project.status === 'validated' ? '✅ Validated' :
                                     project.status === 'archived' ? '📦 Archived' :
-                                      'Active'}
+                                      project.status === 'blocked' ? '🚫 Blocked' :
+                                        'Active'}
                               </span>
 
                               {/* Action buttons group */}
@@ -1287,11 +1326,76 @@ const Board = () => {
                                         <span className="text">Validate</span>
                                       </button>
                                     )}
+
+                                    {/* Admins can block/unblock projects */}
+                                    {user.role === 'ADMIN' && project.status !== 'validated' && project.status !== 'archived' && (
+                                      <>
+                                        {project.status !== 'blocked' ? (
+                                          <button
+                                            className="project-action-btn block-btn"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              if (window.confirm(`Block "${project['project-name']}"?`)) {
+                                                try {
+                                                  setUpdatingStatus(true);
+                                                  await ApiService.updateProjectStatus(project.project_id, 'block');
+                                                  setProjects(prev => prev.map(p =>
+                                                    p.project_id === project.project_id
+                                                      ? { ...p, status: 'blocked' }
+                                                      : p
+                                                  ));
+                                                  toast.success('Project blocked successfully!');
+                                                } catch (error) {
+                                                  console.error('Failed to block project:', error);
+                                                  toast.error('Failed to block project');
+                                                } finally {
+                                                  setUpdatingStatus(false);
+                                                }
+                                              }
+                                            }}
+                                            disabled={updatingStatus}
+                                            title="Block Project"
+                                          >
+                                            <span className="icon">🚫</span>
+                                            <span className="text">Block</span>
+                                          </button>
+                                        ) : (
+                                          <button
+                                            className="project-action-btn unblock-btn"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              if (window.confirm(`Unblock "${project['project-name']}"?`)) {
+                                                try {
+                                                  setUpdatingStatus(true);
+                                                  await ApiService.updateProjectStatus(project.project_id, 'unblock');
+                                                  setProjects(prev => prev.map(p =>
+                                                    p.project_id === project.project_id
+                                                      ? { ...p, status: 'active' }
+                                                      : p
+                                                  ));
+                                                  toast.success('Project unblocked successfully!');
+                                                } catch (error) {
+                                                  console.error('Failed to unblock project:', error);
+                                                  toast.error('Failed to unblock project');
+                                                } finally {
+                                                  setUpdatingStatus(false);
+                                                }
+                                              }
+                                            }}
+                                            disabled={updatingStatus}
+                                            title="Unblock Project"
+                                          >
+                                            <span className="icon">🔓</span>
+                                            <span className="text">Unblock</span>
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
                                   </div>
                                 )}
 
                               {/* Other action buttons */}
-                       
+
 
                               {user?.role === 'ADMIN' && (
                                 <button
