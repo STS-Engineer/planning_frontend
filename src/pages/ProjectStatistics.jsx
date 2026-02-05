@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-    BarChart, Bar, LineChart, Line, XAxis, YAxis,
-    CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Scatter
+    BarChart, Bar, Line, XAxis, YAxis,
+    CartesianGrid, Cell, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Scatter, PieChart, Pie,
 } from 'recharts';
 import ApiService from '../services/api';
 import { useAuth } from '../components/context/AuthContext';
@@ -121,7 +121,8 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                 padding: '25px',
                 borderRadius: '20px',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                marginTop: '25px'
+                marginTop: '25px',
+
             }}>
                 <div style={{
                     display: 'flex',
@@ -129,7 +130,9 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                     alignItems: 'center',
                     marginBottom: '25px',
                     flexWrap: 'wrap',
-                    gap: '15px'
+                    gap: '15px',
+                    maxWidth: '800px',  // Add this
+                    margin: '0 auto'    // Add this
                 }}>
                     <h2 style={{
                         margin: 0,
@@ -725,106 +728,328 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
         </div>
     );
 
-    // Add these new functions with your other helper functions
+    // Add this component after your TimelineChart component
+    // Add this component after your TimelineChart component
+    const ProjectStatusChart = () => {
+        if (!filteredProjectsKPI || filteredProjectsKPI.length === 0) {
+            return (
+                <EmptyChart
+                    message="No project status data available"
+                    icon="📊"
+                />
+            );
+        }
 
-    const calculateMemberProductivity = () => {
-        if (timelineData.length === 0) return 0;
-        const sum = timelineData.reduce((acc, day) => acc + (day.memberProductivity || 0), 0);
-        return (sum / timelineData.length).toFixed(1);
-    };
+        console.log('📊 Project data for status chart:', filteredProjectsKPI[0]); // Debug log
 
-    const calculateMemberProgressTrend = () => {
-        if (timelineData.length < 7) return 0;
+        // Let's find what fields are available in the project data
+        const getAvailableFields = () => {
+            if (filteredProjectsKPI.length === 0) return [];
+            const sample = filteredProjectsKPI[0];
+            return Object.keys(sample);
+        };
 
-        const lastWeek = timelineData.slice(-7);
-        const firstProgress = lastWeek[0].memberProgress || 0;
-        const lastProgress = lastWeek[lastWeek.length - 1].memberProgress || 0;
+        console.log('🔍 Available fields in project data:', getAvailableFields());
 
-        return parseFloat(((lastProgress - firstProgress) / Math.max(1, firstProgress) * 100).toFixed(1));
-    };
+        // Method 1: Try to extract status from the project data
+        const extractStatusFromProject = (project) => {
+            // Look for status in various possible fields
+            const possibleStatusFields = [
+                'status',
+                'projectStatus',
+                'state',
+                'phase',
+                'progress_status',
+                'project_status'
+            ];
 
-    const calculateActiveDays = () => {
-        if (timelineData.length === 0) return 0;
-        const daysWithActivity = timelineData.filter(day =>
-            (day.memberTasksCompleted && day.memberTasksCompleted > 0) ||
-            (day.dailyCompletedTasks && day.dailyCompletedTasks > 0)
-        ).length;
-        return daysWithActivity;
+            for (const field of possibleStatusFields) {
+                if (project[field] && typeof project[field] === 'string') {
+                    return project[field].toLowerCase().trim();
+                }
+            }
+
+            // If no status field, try to determine status based on completion rate
+            if (project.completionRate >= 100) return 'completed';
+            if (project.completionRate >= 70) return 'on track';
+            if (project.completionRate >= 30) return 'in progress';
+            if (project.completionRate > 0) return 'started';
+            return 'not started';
+        };
+
+        // Method 2: Count projects by determined status
+        const getStatusCounts = () => {
+            const statusCounts = {
+                'completed': 0,
+                'in progress': 0,
+                'on track': 0,
+                'at risk': 0,
+                'behind schedule': 0,
+                'not started': 0,
+                'on hold': 0,
+                'pending': 0
+            };
+
+            filteredProjectsKPI.forEach(project => {
+                const status = extractStatusFromProject(project);
+                const normalizedStatus = status.toLowerCase().trim();
+
+                // Map similar statuses to standard categories
+                let finalStatus = normalizedStatus;
+                if (normalizedStatus.includes('complete') || normalizedStatus.includes('done')) {
+                    finalStatus = 'completed';
+                } else if (normalizedStatus.includes('progress') || normalizedStatus.includes('active')) {
+                    finalStatus = 'in progress';
+                } else if (normalizedStatus.includes('track') || normalizedStatus.includes('good')) {
+                    finalStatus = 'on track';
+                } else if (normalizedStatus.includes('risk') || normalizedStatus.includes('warning')) {
+                    finalStatus = 'at risk';
+                } else if (normalizedStatus.includes('behind') || normalizedStatus.includes('late')) {
+                    finalStatus = 'behind schedule';
+                } else if (normalizedStatus.includes('hold') || normalizedStatus.includes('pause')) {
+                    finalStatus = 'on hold';
+                } else if (normalizedStatus.includes('not') || normalizedStatus.includes('plan')) {
+                    finalStatus = 'not started';
+                }
+
+                if (statusCounts[finalStatus] !== undefined) {
+                    statusCounts[finalStatus]++;
+                } else {
+                    // For unknown statuses, create a new category
+                    if (!statusCounts[finalStatus]) {
+                        statusCounts[finalStatus] = 0;
+                    }
+                    statusCounts[finalStatus]++;
+                }
+            });
+
+            // Filter out statuses with 0 count and format for chart
+            return Object.entries(statusCounts)
+                .filter(([_, count]) => count > 0)
+                .map(([name, value]) => ({
+                    name: name.charAt(0).toUpperCase() + name.slice(1),
+                    value,
+                    percentage: ((value / filteredProjectsKPI.length) * 100).toFixed(1)
+                }));
+        };
+
+        const statusData = getStatusCounts();
+        console.log('📈 Status data calculated:', statusData);
+
+        // Status colors
+        const STATUS_COLORS = {
+            'completed': '#4ecdc4',
+            'in progress': '#ffd93d',
+            'on track': '#36ba9b',
+            'at risk': '#ff9f43',
+            'behind schedule': '#ff6b6b',
+            'not started': '#a8e6cf',
+            'on hold': '#999',
+            'pending': '#ff9f43'
+        };
+
+        const getStatusColor = (status) => {
+            const key = status.toLowerCase();
+            return STATUS_COLORS[key] || '#9d4edd';
+        };
+
+        // Custom label for pie chart
+        const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+            const RADIAN = Math.PI / 180;
+            const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+            return percent > 0.05 ? (
+                <text
+                    x={x}
+                    y={y}
+                    fill="white"
+                    textAnchor={x > cx ? 'start' : 'end'}
+                    dominantBaseline="central"
+                    fontSize="12"
+                    fontWeight="600"
+                >
+                    {`${(percent * 100).toFixed(0)}%`}
+                </text>
+            ) : null;
+        };
+
+        return (
+            <div style={{
+                background: 'white',
+                padding: '25px',
+                borderRadius: '20px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                marginTop: '25px',
+                textAlign: 'center'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '25px',
+                    flexWrap: 'wrap',
+                    gap: '15px'
+                }}>
+                    <h2 style={{
+                        margin: 0,
+                        fontSize: '24px',
+                        color: '#2c3e50',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px'
+                    }}>
+                        <span>📋</span>
+                        Project Status Distribution
+                        <span style={{
+                            fontSize: '14px',
+                            fontWeight: 'normal',
+                            color: '#667eea',
+                            background: '#f0f4ff',
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            marginLeft: '10px'
+                        }}>
+                            {filteredProjectsKPI.length} projects
+                        </span>
+                    </h2>
+                </div>
+
+                {statusData.length > 0 ? (
+                    <>
+                        <div style={{
+                            height: '350px',
+                            maxWidth: '500px',
+                            margin: '0 auto',  // This centers the chart
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center'
+
+                        }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={statusData}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={renderCustomizedLabel}
+                                        outerRadius={120}
+                                        innerRadius={60}
+                                        paddingAngle={2}
+                                        dataKey="value"
+                                    >
+                                        {statusData.map((entry, index) => (
+                                            <Cell
+                                                key={`cell-${index}`}
+                                                fill={getStatusColor(entry.name)}
+                                                stroke="#fff"
+                                                strokeWidth={2}
+                                            />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        formatter={(value, name, props) => {
+                                            const percentage = props.payload.percentage || 0;
+                                            return [
+                                                `${value} projects (${percentage}%)`,
+                                                props.payload.name
+                                            ];
+                                        }}
+                                        contentStyle={{
+                                            borderRadius: '12px',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                            border: 'none',
+                                            background: 'white'
+                                        }}
+                                    />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        height={36}
+                                        formatter={(value) => {
+                                            const item = statusData.find(d => d.name === value);
+                                            return item ? `${value}: ${item.value}` : value;
+                                        }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Status summary */}
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                            gap: '10px',
+                            marginTop: '20px',
+                            maxWidth: '800px',  // Add this
+                            margin: '20px auto 0 auto'  // Update this
+                        }}>
+                            {statusData.map((status, index) => (
+                                <div key={index} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    padding: '12px',
+                                    background: '#f8f9fa',
+                                    borderRadius: '8px',
+                                    borderLeft: `4px solid ${getStatusColor(status.name)}`
+                                }}>
+                                    <div style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '8px',
+                                        background: `${getStatusColor(status.name)}20`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '14px',
+                                        color: getStatusColor(status.name),
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {status.value}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '14px', fontWeight: '600' }}>
+                                            {status.name}
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: '#666' }}>
+                                            {status.percentage}%
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                ) : (
+                    <div style={{
+                        padding: '40px',
+                        textAlign: 'center',
+                        color: '#666'
+                    }}>
+                        <div style={{ fontSize: '48px', marginBottom: '20px' }}>📊</div>
+                        <div style={{ fontSize: '16px' }}>
+                            No status data found in projects. Check your project data structure.
+                        </div>
+                        <div style={{
+                            fontSize: '12px',
+                            marginTop: '20px',
+                            padding: '10px',
+                            background: '#f8f9fa',
+                            borderRadius: '8px',
+                            textAlign: 'left'
+                        }}>
+                            Available fields in first project: {JSON.stringify(getAvailableFields())}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const calculateAvgTasksPerDay = (totalTasks, daysElapsed) => {
         if (!daysElapsed || daysElapsed === 0) return 0;
         return Number((totalTasks / daysElapsed).toFixed(1));
-    };
-
-
-    // Timeline-specific helper functions
-    const calculateAverageDailyProgress = () => {
-        if (timelineData.length < 2) return 0;
-        const progressValues = timelineData.map(d => d.progress);
-        const differences = [];
-
-        for (let i = 1; i < progressValues.length; i++) {
-            differences.push(progressValues[i] - progressValues[i - 1]);
-        }
-
-        const avgDifference = differences.reduce((a, b) => a + b, 0) / differences.length;
-        return parseFloat(avgDifference.toFixed(1));
-    };
-
-    const findPeakProgressDay = () => {
-        if (timelineData.length === 0) return 'N/A';
-
-        let maxProgress = 0;
-        let peakDay = '';
-
-        timelineData.forEach(day => {
-            if (day.progress > maxProgress) {
-                maxProgress = day.progress;
-                peakDay = day.date;
-            }
-        });
-
-        return peakDay;
-    };
-
-    const calculateTimelineCoverage = () => {
-        const projectDuration = selectedProject?.projectDuration || 90;
-        const dataDays = timelineData.length;
-        return Math.min(Math.round((dataDays / projectDuration) * 100), 100);
-    };
-
-    const calculateAverageProductivity = () => {
-        if (timelineData.length === 0) return 0;
-        const sum = timelineData.reduce((acc, day) => acc + (day.productivity || 0), 0);
-        return (sum / timelineData.length).toFixed(1);
-    };
-
-    const findMostProductiveDay = () => {
-        if (timelineData.length === 0) return 'N/A';
-
-        let maxProductivity = 0;
-        let productiveDay = '';
-
-        timelineData.forEach(day => {
-            const productivity = day.productivity || day.tasksCompleted || 0;
-            if (productivity > maxProductivity) {
-                maxProductivity = productivity;
-                productiveDay = day.date;
-            }
-        });
-
-        return productiveDay;
-    };
-
-    const calculateProgressTrend = () => {
-        if (timelineData.length < 7) return 0;
-
-        const lastWeek = timelineData.slice(-7);
-        const firstProgress = lastWeek[0].totalProgress || lastWeek[0].progress || 0;
-        const lastProgress = lastWeek[lastWeek.length - 1].totalProgress || lastWeek[lastWeek.length - 1].progress || 0;
-
-        return parseFloat(((lastProgress - firstProgress) / Math.max(1, firstProgress) * 100).toFixed(1));
     };
 
     // Around line 66
@@ -2820,10 +3045,22 @@ const ProjectStatistics = ({ selectedProject, projects = [] }) => {
                     </div>
                 )}
 
+
                 {/* Timeline Evolution Chart - ADD THIS RIGHT AFTER THE COMPARISON CHART */}
                 {/* In your return statement, update this line: */}
                 <TimelineChart memberId={selectedMember} />
 
+                {/* Project Status Chart */}
+                {/* Project Status Chart */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: '100%',
+                    gridColumn: '1 / -1'
+                }}>
+                    <ProjectStatusChart />
+                </div>
             </div>
         </div>
     );
